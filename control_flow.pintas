@@ -1,0 +1,17 @@
+# Pintas control flow example
+ulo "No ken Isuble"
+texto "Pintas Control Flow"
+
+no 5 > 3
+butangan "Daytoy ket agparang gapu ta pudno ti kondisyon."
+murdong
+
+isuble i manipud 1 agingga 3
+butangan "Item {{i}}"
+murdong
+
+isuble i manipud 1 agingga 5
+no {{i}} > 3
+butangan "Dakkel: {{i}}"
+murdong
+murdong

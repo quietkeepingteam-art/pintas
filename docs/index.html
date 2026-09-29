@@ -1,0 +1,595 @@
+<!DOCTYPE html>
+<html lang="ilo">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pintas Playground</title>
+<style>
+  :root { color-scheme: light; }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+      Helvetica, Arial, sans-serif;
+    display: flex; flex-direction: column; background: #f3f4f6;
+  }
+  header {
+    display: flex; flex-wrap: wrap; gap: 0.6rem; align-items: center;
+    padding: 0.6rem 0.8rem; background: #1f2937; color: #fff;
+  }
+  header h1 { font-size: 0.95rem; margin: 0 0.4rem 0 0; font-weight: 600; }
+
+  .toolbar { background: #111827; border-top: 1px solid #374151; }
+  .toolbar[hidden], #more-panel[hidden] { display: none; }
+  .tb-main { display: flex; flex-wrap: wrap; gap: 0.35rem 0.5rem; align-items: center;
+    padding: 0.4rem 0.8rem; }
+  #more-panel { display: flex; flex-wrap: wrap; gap: 0.5rem 0.9rem; padding: 0.5rem 0.8rem 0.6rem;
+    border-top: 1px solid #374151; max-height: 40vh; overflow-y: auto; background: #0f172a; }
+  .sec { display: flex; flex-direction: column; gap: 0.15rem; padding-right: 0.9rem;
+    border-right: 1px solid #1f2937; }
+  .sec:last-child { border-right: none; }
+  .sec-name { font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.08em;
+    color: #9ca3af; padding-left: 0.3rem; }
+  .sec .row { display: flex; flex-wrap: wrap; gap: 0.15rem; align-items: center; min-height: 1.6rem; }
+  .collapse-btn, .more-btn { display: inline-flex; align-items: center; gap: 0.35rem;
+    background: transparent; color: #d1d5db; border: 1px solid #4b5563; border-radius: 999px;
+    padding: 0.25rem 0.75rem; font: inherit; font-size: 0.78rem; cursor: pointer; }
+  .collapse-btn:hover, .more-btn:hover { background: #374151; }
+  .collapse-btn:focus-visible, .more-btn:focus-visible { outline: 2px solid #60a5fa; outline-offset: 1px; }
+  .collapse-btn .ico, .more-btn .ico { width: 14px; height: 14px; transition: transform 0.15s; }
+  .collapse-btn[aria-expanded="false"] .ico { transform: rotate(-90deg); }
+  .more-btn[aria-expanded="true"] .ico { transform: rotate(180deg); }
+  .more-btn { margin-left: 0.2rem; }
+  .group { display: flex; gap: 0.15rem; padding: 0 0.5rem 0 0;
+    border-right: 1px solid #374151; align-items: center; }
+  .group:last-child { border-right: none; }
+  button.tb { display: flex; flex-direction: column; align-items: center; justify-content: flex-start;
+    gap: 0.2rem; width: 4.5rem; min-height: 3.1rem; padding: 0.35rem 0.1rem 0.25rem;
+    background: transparent; color: #e5e7eb; border: 1px solid transparent; border-radius: 8px;
+    font: inherit; cursor: pointer; }
+  button.tb:hover { background: #374151; border-color: #4b5563; }
+  button.tb:active { transform: translateY(1px); }
+  button.tb:focus-visible { outline: 2px solid #60a5fa; outline-offset: 1px; }
+  button.tb .ico { flex: none; color: #93c5fd; }
+  button.tb .lbl { font-size: 0.62rem; line-height: 1.1; text-align: center; color: #d1d5db;
+    max-width: 100%; overflow-wrap: break-word; }
+  button.swatch { width: 26px; height: 26px; border-radius: 50%; border: 2px solid #fff;
+    cursor: pointer; padding: 0; margin: 0 0.1rem; }
+  #save-btn { flex-direction: row; gap: 0.4rem; width: auto; min-height: 0; margin-left: 0.4rem;
+    padding: 0.4rem 0.8rem; background: #2563eb; border-color: #2563eb; }
+  #save-btn .ico { color: #fff; width: 18px; height: 18px; }
+  #save-btn .lbl { font-size: 0.85rem; font-weight: 600; color: #fff; }
+  #save-btn:hover { background: #1d4ed8; }
+  button.hdr { flex-direction: row; gap: 0.35rem; width: auto; min-height: 0;
+    padding: 0.35rem 0.65rem; border-color: #4b5563; }
+  button.hdr .ico { width: 18px; height: 18px; color: #e5e7eb; }
+  button.hdr .lbl { font-size: 0.8rem; color: #e5e7eb; }
+  button.hdr:disabled { opacity: 0.35; cursor: default; }
+  button.hdr:disabled:hover { background: transparent; border-color: #4b5563; }
+  #undo-btn { margin-left: auto; }
+  @media (max-width: 900px) {
+    .tb-main { flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    .group, .more-btn { flex: none; }
+  }
+
+  #save-status { font-size: 0.8rem; color: #a7f3d0; min-width: 6rem; }
+  main { flex: 1; display: flex; min-height: 0; }
+  #editor-wrap { position: relative; flex: 1 1 50%; min-width: 0; background: #fff;
+    border-right: 1px solid #d1d5db; }
+  #preview-pane { flex: 1 1 50%; min-width: 0; }
+  /* The textarea and the highlight <pre> must share identical metrics so the
+     coloured text sits exactly under the (transparent) typed text. */
+  #editor, #hl {
+    position: absolute; inset: 0; margin: 0; border: none; padding: 1rem;
+    font-size: 0.9rem; line-height: 1.5; tab-size: 4;
+    font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+    white-space: pre-wrap; overflow-wrap: break-word; word-break: normal;
+    overflow-x: hidden; overflow-y: scroll; letter-spacing: 0;
+  }
+  #editor { resize: none; background: transparent; color: transparent;
+    caret-color: #111827; outline: none; z-index: 1; }
+  #editor::selection { background: rgba(37, 99, 235, 0.25); color: transparent; }
+  #hl { z-index: 0; pointer-events: none; color: #111827; background: #fff;
+    scrollbar-color: transparent transparent; }
+  #hl::-webkit-scrollbar { background: transparent; }
+  #hl::-webkit-scrollbar-thumb { background: transparent; }
+  #hl code { font: inherit; }
+  .t-cmd { color: #1d4ed8; font-weight: 600; }
+  .t-block, .t-end { color: #7c3aed; font-weight: 600; }
+  .t-ctrl { color: #c2410c; font-weight: 600; }
+  .t-str { color: #15803d; }
+  .t-var { color: #b45309; background: #fef3c7; border-radius: 3px; }
+  .t-num { color: #0e7490; }
+  .t-op { color: #be185d; }
+  .t-kw { color: #c2410c; }
+  .t-com { color: #6b7280; font-style: italic; }
+  .t-prop { color: #0369a1; }
+  .t-css { color: #374151; }
+  .t-err { color: #b91c1c; text-decoration: underline wavy #ef4444; }
+  #preview-pane { display: flex; flex-direction: column; }
+  #error-box {
+    display: none; background: #fef2f2; color: #991b1b; padding: 0.6rem 1rem;
+    font-size: 0.85rem; border-bottom: 1px solid #fecaca; white-space: pre-wrap;
+  }
+  #preview { flex: 1; border: none; background: #fff; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Pintas Playground</h1>
+  <button type="button" class="collapse-btn" id="toolbar-toggle" aria-expanded="true" aria-controls="toolbar" title="Ilemmeng/Ipakita ti toolbar"><svg class="ico" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m6 9 6 6 6-6"/></svg><span>Toolbar</span></button>
+  <button class="tb hdr" type="button" id="undo-btn" title="Undo (Ctrl+Z)" aria-label="Undo" disabled><svg class="ico" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg><span class="lbl">Undo</span></button>
+  <button class="tb hdr" type="button" id="redo-btn" title="Redo (Ctrl+Y)" aria-label="Redo" disabled><svg class="ico" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m15 14 5-5-5-5"/><path d="M20 9H9.5a5.5 5.5 0 0 0 0 11H13"/></svg><span class="lbl">Redo</span></button>
+  <button class="tb" type="button" id="save-btn" title="I-save (write to the file)" aria-label="I-save"><svg class="ico" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M5 3h11l3 3v15H5z"/><path d="M8 3v5h7V3"/><rect x="8" y="13" width="8" height="8"/></svg><span class="lbl">I-save</span></button>
+  <span id="save-status"></span>
+</header>
+<nav class="toolbar" id="toolbar" aria-label="Pintas toolbar">
+    <div class="tb-main">
+    <div class="group"><button class="tb" type="button" data-kind="snippet" data-prefix="panid &quot;" data-placeholder="Titulo ti Website" data-suffix="&quot;" title="Panid" aria-label="Panid"><svg class="ico" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M7 3h7l4 4v14H7z"/><path d="M14 3v4h4"/><path d="M10 12h5M10 16h5"/></svg><span class="lbl">Panid</span></button></div>
+    <div class="group"><button class="tb" type="button" data-kind="snippet" data-prefix="texto &quot;" data-placeholder="Ballaigi ti ulo daytoy" data-suffix="&quot;" title="Dakkel a Ulo (texto)" aria-label="Dakkel a Ulo"><svg class="ico" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M5 6.5h14" stroke-width="3.2"/><path d="M5 11.5h14M5 15.5h14M5 19.5h9"/></svg><span class="lbl">Dakkel a Ulo</span></button><button class="tb" type="button" data-kind="snippet" data-prefix="butangan &quot;" data-placeholder="Isuratmo ditoy ti sao mo." data-suffix="&quot;" title="Parapo (butangan)" aria-label="Parapo"><svg class="ico" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M13 4v16M17 4v16"/><path d="M17 4h-6.5a4 4 0 0 0 0 8H13"/></svg><span class="lbl">Parapo</span></button></div>
+    <div class="group"><button class="tb" type="button" data-kind="snippet" data-prefix="silpo &quot;" data-placeholder="Ti nagan ti silpo" data-suffix="&quot; &quot;https://example.com&quot;" title="Silpo" aria-label="Silpo"><svg class="ico" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M10 14a4 4 0 0 0 5.6 0l3-3a4 4 0 0 0-5.6-5.6l-1 1"/><path d="M14 10a4 4 0 0 0-5.6 0l-3 3a4 4 0 0 0 5.6 5.6l1-1"/></svg><span class="lbl">Silpo</span></button><button class="tb" type="button" data-kind="snippet" data-prefix="ladawan &quot;" data-placeholder="ladawan.jpg" data-suffix="&quot;" title="Ladawan" aria-label="Ladawan"><svg class="ico" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="1.6"/><path d="M4 18l5-5 4 4 3-3 4 4"/></svg><span class="lbl">Ladawan</span></button></div>
+    <div class="group"><button class="tb" type="button" data-kind="block" data-open="immuna" data-close="murdong" title="Immuna" aria-label="Immuna"><svg class="ico" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M3 6a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v4.5H3z" fill="currentColor" fill-opacity=".35" stroke="none"/><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10.5h18"/></svg><span class="lbl">Immuna</span></button><button class="tb" type="button" data-kind="block" data-open="garrapon" data-close="murdong" title="Lalaem (garrapon)" aria-label="Lalaem"><svg class="ico" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect x="6" y="3" width="12" height="3" rx="1"/><path d="M7 6v1.5C5.5 8.5 5 9.5 5 11v7a3 3 0 0 0 3 3h8a3 3 0 0 0 3-3v-7c0-1.5-.5-2.5-2-3.5V6"/></svg><span class="lbl">Lalaem</span></button><button class="tb" type="button" data-kind="block" data-open="duakolum" data-close="murdong" title="Dua a Kolum (duakolum)" aria-label="Dua a Kolum"><svg class="ico" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect x="3" y="4" width="8" height="16" rx="1.5"/><rect x="13" y="4" width="8" height="16" rx="1.5"/></svg><span class="lbl">Dua a Kolum</span></button></div>
+    <div class="group"><button class="tb" type="button" data-kind="snippet" data-prefix="pagimbagan &quot;" data-placeholder="Nagan ti pagimbagan" data-suffix="&quot; &quot;Iti daytoy a card ket isuratmo ti detalye.&quot;" title="Pagimbagan" aria-label="Pagimbagan"><svg class="ico" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect x="4" y="3.5" width="16" height="17" rx="2.5"/><path d="M12 7.2l1.2 2.5 2.7.4-2 1.9.5 2.7-2.4-1.3-2.4 1.3.5-2.7-2-1.9 2.7-.4z"/><path d="M8 17.5h8"/></svg><span class="lbl">Pagimbagan</span></button><button class="tb" type="button" data-kind="snippet" data-prefix="ayab &quot;" data-placeholder="Ayabandakami" data-suffix="&quot; &quot;mailto:hello@example.com&quot;" title="Ayab" aria-label="Ayab"><svg class="ico" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M4 5.5A1.5 1.5 0 0 1 5.5 4h13A1.5 1.5 0 0 1 20 5.5v9a1.5 1.5 0 0 1-1.5 1.5H10l-4.5 4v-4H5.5A1.5 1.5 0 0 1 4 14.5z"/><path d="M8 9h8M8 12h5"/></svg><span class="lbl">Ayab</span></button></div>
+    <div class="group"><button class="tb" type="button" data-kind="block" data-open="estilo" data-close="murdong" title="Estilo" aria-label="Estilo"><svg class="ico" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M9 4C7 4 6.5 5 6.5 6.5v2c0 1.2-.7 2.5-2.5 3.5 1.8 1 2.5 2.3 2.5 3.5v2C6.5 19 7 20 9 20"/><path d="M15 4c2 0 2.5 1 2.5 2.5v2c0 1.2.7 2.5 2.5 3.5-1.8 1-2.5 2.3-2.5 3.5v2c0 1.5-.5 2.5-2.5 2.5"/></svg><span class="lbl">Estilo</span></button></div>
+    <button type="button" class="more-btn" id="more-toggle" aria-expanded="false" aria-controls="more-panel" title="Ipakita/Ilemmeng dagiti ad-adu a block"><svg class="ico" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m6 9 6 6 6-6"/></svg><span>Ad-adu</span></button>
+  </div>
+  <div id="more-panel" hidden>
+    <div class="sec"><div class="sec-name">Page</div><div class="row"><button class="tb" type="button" data-kind="snippet" data-prefix="ulo &quot;" data-placeholder="Titulo ti Panid" data-suffix="&quot;" title="Ulo" aria-label="Ulo"><svg class="ico" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 9.5h18"/><path d="M6.5 7.3h4"/></svg><span class="lbl">Ulo</span></button></div></div>
+    <div class="sec"><div class="sec-name">Text</div><div class="row"><button class="tb" type="button" data-kind="snippet" data-prefix="subtexto &quot;" data-placeholder="Bassit nga sao" data-suffix="&quot;" title="Bassit nga Ulo (subtexto)" aria-label="Bassit nga Ulo"><svg class="ico" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M5 7h9" stroke-width="2.4"/><path d="M5 12h14M5 16h14M5 20h8"/></svg><span class="lbl">Bassit nga Ulo</span></button><button class="tb" type="button" data-kind="snippet" data-prefix="sao &quot;" data-placeholder="Isuratmo ditoy ti sao" data-suffix="&quot; &quot;Ti nagsao&quot;" title="Sao" aria-label="Sao"><svg class="ico" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M4.5 18v-4.2c0-3 1.6-5.4 4.6-6.8l.9 1.4c-1.6.9-2.4 2-2.5 3.6H10V18z" fill="currentColor"/><path d="M14 18v-4.2c0-3 1.6-5.4 4.6-6.8l.9 1.4c-1.6.9-2.4 2-2.5 3.6H19.5V18z" fill="currentColor"/></svg><span class="lbl">Sao</span></button><button class="tb" type="button" data-kind="snippet" data-prefix="baga &quot;" data-placeholder="Napateg a damag" data-suffix="&quot;" title="Baga" aria-label="Baga"><svg class="ico" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 4.2 21 19.5H3z"/><path d="M12 10v4.3"/><circle cx="12" cy="16.9" r=".8" fill="currentColor" stroke="none"/></svg><span class="lbl">Baga</span></button><button class="tb" type="button" data-kind="snippet" data-prefix="pagtudo &quot;" data-placeholder="Baro!" data-suffix="&quot;" title="Pagtudo" aria-label="Pagtudo"><svg class="ico" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect x="3" y="8" width="18" height="8" rx="4"/><circle cx="8" cy="12" r="1.3" fill="currentColor" stroke="none"/><path d="M12 12h5"/></svg><span class="lbl">Pagtudo</span></button></div></div>
+    <div class="sec"><div class="sec-name">Lists</div><div class="row"><button class="tb" type="button" data-kind="snippet" data-prefix="banag &quot;" data-placeholder="Baro a banag" data-suffix="&quot;" title="Banag" aria-label="Banag"><svg class="ico" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="5.5" cy="7" r="1.4" fill="currentColor" stroke="none"/><circle cx="5.5" cy="12" r="1.4" fill="currentColor" stroke="none"/><circle cx="5.5" cy="17" r="1.4" fill="currentColor" stroke="none"/><path d="M10 7h10M10 12h10M10 17h10"/></svg><span class="lbl">Banag</span></button><button class="tb" type="button" data-kind="snippet" data-prefix="bilang &quot;" data-placeholder="Sumaruno a hakbang" data-suffix="&quot;" title="Bilang" aria-label="Bilang"><svg class="ico" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M4.4 4.6l1.5-.8v4.6"/><path d="M4 10.4c.3-.9 2.5-1 2.8.1.2 1-2.7 2-2.8 3.1H7"/><path d="M4 16.3h2.6l-1.3 1.5c1.1-.1 1.9.6 1.7 1.5-.3 1-2.1 1.1-2.9.3"/><path d="M10.5 6.2h9.5M10.5 12h9.5M10.5 18h9.5"/></svg><span class="lbl">Bilang</span></button><button class="tb" type="button" data-kind="snippet" data-prefix="naaramid &quot;" data-placeholder="Naaramid a banag" data-suffix="&quot;" title="Naaramid" aria-label="Naaramid"><svg class="ico" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M3.5 7l1.7 1.7L8.3 5.4M3.5 12.6l1.7 1.7 3.1-3.3M3.5 18.2l1.7 1.7 3.1-3.3"/><path d="M11.5 7h8.5M11.5 12.6h8.5M11.5 18.2h8.5"/></svg><span class="lbl">Naaramid</span></button></div></div>
+    <div class="sec"><div class="sec-name">Media &amp; links</div><div class="row"><button class="tb" type="button" data-kind="block" data-open="ladawanan" data-close="murdong" title="Ladawanan" aria-label="Ladawanan"><svg class="ico" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect x="3" y="3" width="8" height="8" rx="1.5"/><rect x="13" y="3" width="8" height="8" rx="1.5"/><rect x="3" y="13" width="8" height="8" rx="1.5"/><rect x="13" y="13" width="8" height="8" rx="1.5"/></svg><span class="lbl">Ladawanan</span></button><button class="tb" type="button" data-kind="snippet" data-prefix="bidyo &quot;" data-placeholder="https://youtu.be/aqz-KE-bpKQ" data-suffix="&quot;" title="Bidyo" aria-label="Bidyo"><svg class="ico" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect x="3" y="5" width="18" height="14" rx="3"/><path d="M10 9.5v5l4.5-2.5z" fill="currentColor"/></svg><span class="lbl">Bidyo</span></button></div></div>
+    <div class="sec"><div class="sec-name">Layout</div><div class="row"><button class="tb" type="button" data-kind="block" data-open="dalan" data-close="murdong" title="Dalan" aria-label="Dalan"><svg class="ico" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect x="3" y="7" width="18" height="10" rx="2"/><path d="M6.5 12h3M11 12h3M15.5 12h2"/></svg><span class="lbl">Dalan</span></button><button class="tb" type="button" data-kind="block" data-open="udi" data-close="murdong" title="Udi" aria-label="Udi"><svg class="ico" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M3 13.5h18V18a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" fill="currentColor" fill-opacity=".35" stroke="none"/><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 13.5h18"/></svg><span class="lbl">Udi</span></button><button class="tb" type="button" data-kind="line" data-line="pila" title="Pila" aria-label="Pila"><svg class="ico" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M4 6.5h16M4 17.5h16" opacity=".45"/><path d="M8 12h8" stroke-width="2.6"/></svg><span class="lbl">Pila</span></button><button class="tb" type="button" data-kind="line" data-line="tengnga" title="Itengnga (tengnga)" aria-label="Itengnga"><svg class="ico" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M4 6h16M7 12h10M5 18h14"/></svg><span class="lbl">Itengnga</span></button></div></div>
+    <div class="sec"><div class="sec-name">Ready-made</div><div class="row"><button class="tb" type="button" data-kind="line" data-line="listaan
+ringgor &quot;Plano&quot; &quot;Presyo&quot;
+ringgor &quot;Basic&quot; &quot;Libre&quot;" title="Listaan" aria-label="Listaan"><svg class="ico" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 10h18M3 14.5h18M10 10v9"/></svg><span class="lbl">Listaan</span></button><button class="tb" type="button" data-kind="snippet" data-prefix="saludsod &quot;" data-placeholder="Saludsod" data-suffix="&quot; &quot;Sungbat&quot;" title="Saludsod" aria-label="Saludsod"><svg class="ico" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.6 2.2c-.7.4-1.1 1-1.1 1.8"/><circle cx="12" cy="17" r=".9" fill="currentColor" stroke="none"/></svg><span class="lbl">Saludsod</span></button><button class="tb" type="button" data-kind="snippet" data-prefix="pagbilangan &quot;" data-placeholder="2026-12-31T23:59:59" data-suffix="&quot; &quot;Dandani&quot;" title="Pagbilangan" aria-label="Pagbilangan"><svg class="ico" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="13.5" r="7.5"/><path d="M12 9.5v4l2.5 1.5"/><path d="M9.5 3h5"/></svg><span class="lbl">Pagbilangan</span></button><button class="tb" type="button" data-kind="snippet" data-prefix="pagsuratan &quot;" data-placeholder="Naganmo" data-suffix="&quot; &quot;Isurat ditoy&quot;" title="Pagsuratan" aria-label="Pagsuratan"><svg class="ico" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M3 4.5h6" opacity=".55"/><rect x="3" y="8" width="18" height="10" rx="2"/><path d="M7.5 11v4" stroke-width="2"/></svg><span class="lbl">Pagsuratan</span></button></div></div>
+    <div class="sec"><div class="sec-name">Interactive &amp; logic</div><div class="row"><button class="tb" type="button" id="toggle-btn" data-kind="toggle" title="Ipakita/Ilemmeng (pagpindutan + garrapon)" aria-label="Ipakita/Ilemmeng"><svg class="ico" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z"/><circle cx="12" cy="12" r="2.8"/></svg><span class="lbl">Ipakita/<wbr>Ilemmeng</span></button><button class="tb" type="button" data-kind="snippet" data-prefix="pagpindutan &quot;" data-placeholder="I-click daytoy" data-suffix="&quot;" title="Buton (pagpindutan)" aria-label="Buton"><svg class="ico" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect x="3" y="5.5" width="15" height="9" rx="2.5"/><path d="M14 12l7 3-3 1.2 1.8 3.3-1.6.9-1.8-3.3L14 19z" fill="currentColor" stroke-width="1.2"/></svg><span class="lbl">Buton</span></button><button class="tb" type="button" data-kind="block" data-open="no 5 &gt; 3" data-close="murdong" data-body="butangan &quot;Daytoy ket makita.&quot;" data-select="5 &gt; 3" title="No" aria-label="No"><svg class="ico" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 3.5 20.5 12 12 20.5 3.5 12z"/><path d="M8.7 12l2.3 2.3 4.3-4.6"/></svg><span class="lbl">No</span></button><button class="tb" type="button" data-kind="block" data-open="isuble i manipud 1 agingga 3" data-close="murdong" data-body="butangan &quot;Numero {{i}}&quot;" data-select="1 agingga 3" title="Isuble" aria-label="Isuble"><svg class="ico" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M4 12a8 8 0 0 1 13.5-5.8"/><path d="M20 12a8 8 0 0 1-13.5 5.8"/><path d="M17.5 3v3.5H14"/><path d="M6.5 21v-3.5H10"/></svg><span class="lbl">Isuble</span></button></div></div>
+    <div class="sec"><div class="sec-name">Style</div><div class="row"><button class="tb" type="button" data-kind="snippet" data-prefix="kolor &quot;" data-placeholder="lightblue" data-suffix="&quot;" title="Kolor" aria-label="Kolor"><svg class="ico" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 3.5s6 6 6 10.5a6 6 0 0 1-12 0C6 9.5 12 3.5 12 3.5z" fill="currentColor" fill-opacity=".25"/><path d="M9.3 14.6a2.7 2.7 0 0 0 2.7 2.7"/></svg><span class="lbl">Kolor</span></button><button class="tb" type="button" data-kind="snippet" data-prefix="teksto-kolor &quot;" data-placeholder="#1f2937" data-suffix="&quot;" title="Teksto-kolor" aria-label="Teksto-kolor"><svg class="ico" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M6 15.5 12 3.5l6 12M8.3 11.5h7.4"/><path d="M5 20h14" stroke-width="3.2"/></svg><span class="lbl">Teksto-kolor</span></button></div></div>
+    <div class="sec"><div class="sec-name">Themes</div><div class="row" id="theme-group" title="tema"></div></div>
+    <div class="sec"><div class="sec-name">Generators</div><div class="row"><button class="tb" type="button" id="gen-theme-btn" title="Mangaramid iti baro a tema (kolor + font)" aria-label="Baro a Tema"><svg class="ico" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M11 3l1.8 5.2L18 10l-5.2 1.8L11 17l-1.8-5.2L4 10l5.2-1.8z"/><path d="M19 15v5M16.5 17.5h5"/></svg><span class="lbl">Baro a Tema</span></button><button class="tb" type="button" id="gen-pattern-btn" title="Kusikus-style a pattern iti panid" aria-label="Pattern"><svg class="ico" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect x="3" y="3" width="18" height="18" rx="2" opacity=".45"/><path d="M3 7.5A4.5 4.5 0 0 0 7.5 3M12 7.5A4.5 4.5 0 0 0 7.5 12M16.5 3A4.5 4.5 0 0 0 21 7.5M12 7.5A4.5 4.5 0 0 1 16.5 12M7.5 12A4.5 4.5 0 0 0 12 16.5M3 16.5A4.5 4.5 0 0 1 7.5 21M12 16.5A4.5 4.5 0 0 0 16.5 12M21 16.5A4.5 4.5 0 0 0 16.5 21"/></svg><span class="lbl">Pattern</span></button><button class="tb" type="button" id="gen-pattern-card-btn" title="Kusikus-style a pattern iti lalaem" aria-label="Pattern ti Lalaem"><svg class="ico" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect x="3" y="3" width="18" height="18" rx="2.5"/><rect x="7" y="7" width="10" height="10" rx="1.5" stroke-dasharray="2 2"/></svg><span class="lbl">Pattern ti Lalaem</span></button></div></div>
+  </div>
+</nav>
+<main>
+  <div id="editor-wrap">
+    <pre id="hl" aria-hidden="true"><code></code></pre>
+    <textarea id="editor" spellcheck="false" autocapitalize="off" autocomplete="off" autocorrect="off"></textarea>
+  </div>
+  <div id="preview-pane">
+    <div id="error-box"></div>
+    <iframe id="preview" title="Preview"></iframe>
+  </div>
+</main>
+<script src="https://cdn.jsdelivr.net/pyodide/v0.26.4/full/pyodide.js"></script>
+<script>
+(function () {
+  var status = document.getElementById("save-status");
+  var realFetch = window.fetch.bind(window);
+  var FILES = ["pintas.py", "pintas_editor.py", "theme_generator.py", "pattern_generator.py", "editor_toolbar.py"];
+  var PY_API = [
+    "import json, sys",
+    "sys.path.insert(0, '/pintas')",
+    "import pintas, pintas_editor",
+    "def api(path, payload_json):",
+    "    p = json.loads(payload_json)",
+    "    try:",
+    "        if path == '/compile':",
+    "            html, _ = pintas.compile_pintas(p.get('source', ''), live_reload=False)",
+    "            return json.dumps({'ok': True, 'html': html})",
+    "        if path == '/generate-theme':",
+    "            snippet, accent, bg = pintas_editor.generate_theme_snippet(p.get('seed'))",
+    "            return json.dumps({'ok': True, 'snippet': snippet, 'accent': accent, 'bg': bg})",
+    "        if path == '/generate-pattern':",
+    "            snippet = pintas_editor.generate_pattern_snippet(p.get('seed'), p.get('size', 6),",
+    "                p.get('accent', '#2563eb'), p.get('bg', '#f0f6ff'), p.get('target', 'body'))",
+    "            return json.dumps({'ok': True, 'snippet': snippet})",
+    "        return json.dumps({'ok': False, 'error': 'Unknown endpoint ' + path})",
+    "    except Exception as e:",
+    "        return json.dumps({'ok': False, 'error': str(e) or type(e).__name__})"
+  ].join("\n");
+
+  var ready = (async function () {
+    status.textContent = "Agkarga ti Python...";
+    var py = await loadPyodide();
+    py.FS.mkdirTree("/pintas");
+    for (var i = 0; i < FILES.length; i++) {
+      var res = await realFetch("py/" + FILES[i]);
+      if (!res.ok) throw new Error("Saan a naikarga ti " + FILES[i]);
+      py.FS.writeFile("/pintas/" + FILES[i], await res.text());
+    }
+    py.runPython(PY_API);
+    status.textContent = "";
+    return py.globals.get("api");
+  })();
+  ready.catch(function (e) { status.textContent = "Diak nakarga ti Python: " + e.message; });
+
+  function reply(obj) {
+    return { ok: true, json: function () { return Promise.resolve(obj); } };
+  }
+
+  window.fetch = function (url, opts) {
+    var path = String(url);
+    if (path === "/save") {           // no server file: download it instead
+      var src = JSON.parse(opts.body).source;
+      var a = document.createElement("a");
+      a.href = URL.createObjectURL(new Blob([src], { type: "text/plain;charset=utf-8" }));
+      a.download = "panid.pintas";
+      document.body.appendChild(a); a.click(); a.remove();
+      return Promise.resolve(reply({ ok: true }));
+    }
+    if (path.charAt(0) !== "/") return realFetch(url, opts);
+    return ready.then(function (api) {
+      return reply(JSON.parse(api(path, opts.body)));
+    });
+  };
+})();
+</script>
+<script type="application/json" id="initial-source">"# Pintas 0.6 \u2014 full landing-page example\npanid \"Pintas Demo\"\nulo \"Pintas - Napintas a Webpage\"\ntema \"asul\"\n\ndalan\nsilpo \"Umuna\" \"#umuna\"\nsilpo \"Features\" \"#features\"\nsilpo \"Pricing\" \"#pricing\"\nsilpo \"Kontak\" \"#kontak\"\nmurdong\n\nimmuna\ntexto \"Kablaaw!\"\nsubtexto \"Aramiden ti napintas a webpage babaen iti Ilokano.\"\nayab \"Contact Us\" \"mailto:hello@example.com\"\nayab \"Learn More\" \"#features\"\nmurdong\n\ngarrapon\npagtudo \"FEATURES\"\ntexto \"Simple, powerful, Pintas.\"\nbutangan \"Add structured sections without writing HTML or CSS.\"\n\nduakolum\ngarrapon\npagimbagan \"Napardas\" \"Simple commands compile into clean HTML.\"\nmurdong\ngarrapon\npagimbagan \"Napintas\" \"Themes and responsive cards make pages look polished.\"\nmurdong\nmurdong\nmurdong\n\npila\n\ntengnga\ntexto \"Pricing\"\nlistaan\nringgor \"Plano\" \"Presyo\" \"Kasapulan\"\nringgor \"Basic\" \"Libre\" \"Umuna a proyekto\"\nringgor \"Pro\" \"\u20b1499\" \"Ad-adu a features\"\nringgor \"Business\" \"\u20b1999\" \"Para kadagiti team\"\npila\n\ngarrapon\ntexto \"Ready to build?\"\nbutangan \"Start creating your own Pintas webpage today.\"\nayab \"Email Us\" \"mailto:hello@example.com\"\nayab \"Call Us\" \"tel:+639000000000\"\nmurdong\n\ntexto \"More UI\"\nsaludsod \"Ania ti Pintas?\" \"Ti Pintas ket maysa a simple a Ilokano-inspired language para iti webpages.\"\nsaludsod \"Mabalin kadi iti countdown?\" \"Wen. Ipaay laeng ti ISO 8601 a target date.\"\npagbilangan \"2026-12-31T23:59:59\" \"Launching soon\"\npagsuratan \"Naganmo\" \"Isurat ditoy ti nagan mo\"\n\nladawanan\nladawan \"https://picsum.photos/seed/pintas1/600/450\"\nladawan \"https://picsum.photos/seed/pintas2/600/450\"\nladawan \"https://picsum.photos/seed/pintas3/600/450\"\nmurdong\n\nudi\nbutangan \"Naaramid babaen ti Pintas\"\nmurdong\n"</script>
+<script>
+(function () {
+  var THEMES = [
+    ["puraw", "#2563eb"], ["nangisit", "#3b82f6"], ["asul", "#2563eb"],
+    ["berde", "#16a34a"], ["duyaw", "#d97706"], ["labaga", "#dc2626"],
+    ["rabii", "#e838ff"], ["balitok", "#d4af37"], ["danum", "#0891b2"]
+  ];
+  var themeGroup = document.getElementById("theme-group");
+  THEMES.forEach(function (pair) {
+    var b = document.createElement("button");
+    b.className = "swatch";
+    b.style.background = pair[1];
+    b.title = pair[0];
+    b.dataset.kind = "line";
+    b.dataset.line = 'tema "' + pair[0] + '"';
+    themeGroup.appendChild(b);
+  });
+
+  var editor = document.getElementById("editor");
+  var preview = document.getElementById("preview");
+  var errorBox = document.getElementById("error-box");
+  var saveBtn = document.getElementById("save-btn");
+  var saveStatus = document.getElementById("save-status");
+
+  function insertAtCursor(text) {
+    var start = editor.selectionStart;
+    var end = editor.selectionEnd;
+    editor.value = editor.value.slice(0, start) + text + editor.value.slice(end);
+    return start;
+  }
+
+  function insertSnippet(prefix, placeholder, suffix) {
+    var insertStart = insertAtCursor(prefix + placeholder + suffix + "\n");
+    var selStart = insertStart + prefix.length;
+    var selEnd = selStart + placeholder.length;
+    editor.focus();
+    editor.setSelectionRange(selStart, selEnd);
+    commit();
+  }
+
+  function insertBlock(openLine, closeLine, body, select) {
+    body = body || "";
+    var snippet = openLine + "\n" + body + "\n" + closeLine + "\n";
+    var insertStart = insertAtCursor(snippet);
+    var at = select ? openLine.indexOf(select) : -1;
+    editor.focus();
+    if (at >= 0) {
+      editor.setSelectionRange(insertStart + at, insertStart + at + select.length);
+    } else {
+      var caret = insertStart + openLine.length + 1;
+      editor.setSelectionRange(caret, caret);
+    }
+    commit();
+  }
+
+  function insertLine(text) {
+    var insertStart = insertAtCursor(text + "\n");
+    var caret = insertStart + text.length + 1;
+    editor.focus();
+    editor.setSelectionRange(caret, caret);
+    commit();
+  }
+
+  var toggleCounter = 1;
+  function insertToggle() {
+    var name = "detalye" + toggleCounter++;
+    var before = 'pagpindutan "Ipakita/Ilemmeng" "' + name + '"\n\n'
+      + 'garrapon "' + name + '"\n';
+    var after = "\nmurdong\n";
+    var insertStart = insertAtCursor(before + after);
+    var caret = insertStart + before.length;
+    editor.focus();
+    editor.setSelectionRange(caret, caret);
+    commit();
+  }
+  document.getElementById("toggle-btn").addEventListener("click", insertToggle);
+
+  document.querySelectorAll('button[data-kind="snippet"]').forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      insertSnippet(btn.dataset.prefix, btn.dataset.placeholder, btn.dataset.suffix);
+    });
+  });
+  document.querySelectorAll('button[data-kind="block"]').forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      insertBlock(btn.dataset.open, btn.dataset.close, btn.dataset.body, btn.dataset.select);
+    });
+  });
+  document.querySelectorAll('button[data-kind="line"]').forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      insertLine(btn.dataset.line);
+    });
+  });
+
+  // Generators: each click asks the server for a fresh, verified result and
+  // REPLACES the previous generated block (marked by "# >>> name" ...
+  // "# <<< name" comment lines) instead of stacking copies.
+  var lastColors = { accent: "#2563eb", bg: "#f0f6ff" };
+
+  function placeGenerated(name, snippet) {
+    var re = new RegExp("# >>> " + name + "\n[\\s\\S]*?# <<< " + name + "\n?");
+    if (re.test(editor.value)) {
+      editor.value = editor.value.replace(re, function () { return snippet + "\n"; });
+      editor.focus();
+      commit();
+    } else {
+      insertLine(snippet);
+    }
+  }
+
+  function generate(url, body, name, done) {
+    body.seed = Math.floor(Math.random() * 1000000);
+    fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body)
+    })
+      .then(function (res) { return res.json(); })
+      .then(function (data) {
+        if (!data.ok) {
+          errorBox.textContent = data.error;
+          errorBox.style.display = "block";
+          return;
+        }
+        if (done) done(data);
+        placeGenerated(name, data.snippet);
+      })
+      .catch(function () {
+        errorBox.textContent = "Saan a maka-konekta iti server.";
+        errorBox.style.display = "block";
+      });
+  }
+
+  document.getElementById("gen-theme-btn").addEventListener("click", function () {
+    generate("/generate-theme", {}, "tema-generator", function (data) {
+      lastColors = { accent: data.accent, bg: data.bg };
+    });
+  });
+  document.getElementById("gen-pattern-btn").addEventListener("click", function () {
+    generate("/generate-pattern",
+      { size: 6, accent: lastColors.accent, bg: lastColors.bg, target: "body" },
+      "pattern-generator");
+  });
+  document.getElementById("gen-pattern-card-btn").addEventListener("click", function () {
+    generate("/generate-pattern",
+      { size: 4, accent: lastColors.accent, bg: lastColors.bg, target: ".garrapon" },
+      "pattern-generator-lalaem");
+  });
+
+  // ---- Syntax highlighting -------------------------------------------
+  var KW = {"block": ["dalan", "duakolum", "garrapon", "immuna", "ladawanan", "udi", "estilo"], "end": ["murdong"], "ctrl": ["no", "isuble"], "cmd": ["ayab", "baga", "banag", "bidyo", "bilang", "butangan", "kolor", "ladawan", "listaan", "naaramid", "pagbilangan", "pagimbagan", "pagpindutan", "pagsuratan", "pagtudo", "panid", "pila", "ringgor", "saludsod", "sao", "silpo", "subtexto", "teksto-kolor", "tema", "tengnga", "texto", "ulo"]};
+  var ROLE = {};
+  Object.keys(KW).forEach(function (role) {
+    KW[role].forEach(function (w) { ROLE[w] = role; });
+  });
+  var WORD_KW = { manipud: 1, agingga: 1, addang: 1, pudno: 1, saan: 1 };
+  var hl = document.getElementById("hl");
+  var hlCode = hl.querySelector("code");
+
+  function esc(s) {
+    return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  }
+  function span(cls, s) { return '<span class="t-' + cls + '">' + esc(s) + "</span>"; }
+
+  function strHtml(s) {
+    var out = "", last = 0, m, re = /\{\{[^}]*\}\}/g;
+    while ((m = re.exec(s))) {
+      out += esc(s.slice(last, m.index)) + span("var", m[0]);
+      last = m.index + m[0].length;
+    }
+    return out + esc(s.slice(last));
+  }
+
+  function restHtml(rest) {
+    var re = /("[^"]*"?)|(\{\{[^}]*\}\})|(-?\d+(?:\.\d+)?)|([A-Za-z_][A-Za-z0-9_-]*)|(==|!=|>=|<=|>|<)/g;
+    var out = "", last = 0, m;
+    while ((m = re.exec(rest))) {
+      out += esc(rest.slice(last, m.index));
+      if (m[1] !== undefined) {
+        var closed = m[1].length > 1 && m[1].charAt(m[1].length - 1) === '"';
+        out += closed ? '<span class="t-str">' + strHtml(m[1]) + "</span>" : span("err", m[1]);
+      } else if (m[2] !== undefined) out += span("var", m[2]);
+      else if (m[3] !== undefined) out += span("num", m[3]);
+      else if (m[4] !== undefined) out += WORD_KW[m[4]] ? span("kw", m[4]) : esc(m[4]);
+      else out += span("op", m[5]);
+      last = m.index + m[0].length;
+    }
+    return out + esc(rest.slice(last));
+  }
+
+  function lineHtml(line, st) {
+    var t = line.trim();
+    if (st.css) {                         // inside estilo: opaque CSS
+      if (t === "murdong") { st.css = false; return span("end", line); }
+      var pm = /^(\s*)([A-Za-z-]+)(\s*:)(.*)$/.exec(line);
+      if (pm) return esc(pm[1]) + span("prop", pm[2]) + esc(pm[3]) + span("css", pm[4]);
+      return span("css", line);
+    }
+    if (t === "") return esc(line);
+    if (t.charAt(0) === "#" || t.slice(0, 2) === "//") return span("com", line);
+    var m = /^(\s*)(\S+)(.*)$/.exec(line);
+    var role = Object.prototype.hasOwnProperty.call(ROLE, m[2]) ? ROLE[m[2]] : null;
+    if (m[2] === "estilo") st.css = true;
+    return esc(m[1]) + span(role || "err", m[2]) + restHtml(m[3]);
+  }
+
+  function highlight() {
+    var st = { css: false };
+    var html = editor.value.split("\n").map(function (l) { return lineHtml(l, st); }).join("\n");
+    // trailing newline so the last (empty) line keeps its height in the <pre>
+    hlCode.innerHTML = html + "\n";
+    hl.scrollTop = editor.scrollTop;
+    hl.scrollLeft = editor.scrollLeft;
+  }
+  editor.addEventListener("scroll", function () {
+    hl.scrollTop = editor.scrollTop;
+    hl.scrollLeft = editor.scrollLeft;
+  });
+
+  var debounceTimer = null;
+  function scheduleCompile() {
+    highlight();
+    clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(compileNow, 400);
+  }
+
+  function compileNow() {
+    fetch("/compile", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ source: editor.value })
+    })
+      .then(function (res) { return res.json(); })
+      .then(function (data) {
+        if (data.ok) {
+          errorBox.style.display = "none";
+          preview.srcdoc = data.html;
+        } else {
+          errorBox.textContent = data.error;
+          errorBox.style.display = "block";
+        }
+      })
+      .catch(function () {
+        errorBox.textContent = "Saan a maka-konekta iti server.";
+        errorBox.style.display = "block";
+      });
+  }
+
+  saveBtn.addEventListener("click", function () {
+    saveStatus.textContent = "Agser-serve...";
+    fetch("/save", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ source: editor.value })
+    })
+      .then(function (res) { return res.json(); })
+      .then(function (data) {
+        saveStatus.textContent = data.ok ? "Naisalbar!" : ("Sayop: " + data.error);
+      })
+      .catch(function () {
+        saveStatus.textContent = "Saan a maka-konekta iti server.";
+      })
+      .finally(function () {
+        setTimeout(function () { saveStatus.textContent = ""; }, 2500);
+      });
+  });
+
+  // ---- Undo / redo ---------------------------------------------------
+  // A textarea's own undo stack is wiped whenever a script sets .value, and
+  // every toolbar button and generator does. So we keep our own history.
+  var undoBtn = document.getElementById("undo-btn");
+  var redoBtn = document.getElementById("redo-btn");
+  var hist = [], hIdx = -1, typingTop = false, lastTyped = 0, burstStart = 0, HMAX = 300;
+
+  function updateUndoUi() {
+    undoBtn.disabled = hIdx <= 0;
+    redoBtn.disabled = hIdx >= hist.length - 1;
+  }
+
+  function record(kind) {
+    var cur = editor.value;
+    if (hIdx >= 0 && hist[hIdx] === cur) return;
+    var now = Date.now();
+    if (kind === "type" && typingTop && now - lastTyped < 700 && now - burstStart < 5000) {
+      hist[hIdx] = cur;                    // same burst of typing = one undo step
+    } else {
+      hist.length = hIdx + 1;              // a new edit ends the redo branch
+      hist.push(cur);
+      if (hist.length > HMAX) hist.shift();
+      hIdx = hist.length - 1;
+      if (kind === "type") burstStart = now;
+    }
+    typingTop = kind === "type";
+    lastTyped = now;
+    updateUndoUi();
+  }
+
+  function commit() {
+    record("edit");
+    scheduleCompile();
+  }
+
+  function restore(target) {
+    var from = editor.value, to = hist[target];
+    // put the caret at the end of whatever changed
+    var p = 0, max = Math.min(from.length, to.length);
+    while (p < max && from.charAt(p) === to.charAt(p)) p++;
+    var q = 0;
+    while (q < max - p && from.charAt(from.length - 1 - q) === to.charAt(to.length - 1 - q)) q++;
+    var top = editor.scrollTop;
+    editor.value = to;
+    editor.focus();
+    editor.setSelectionRange(to.length - q, to.length - q);
+    editor.scrollTop = top;
+    hIdx = target;
+    typingTop = false;
+    updateUndoUi();
+    scheduleCompile();
+  }
+
+  function undo() { if (hIdx > 0) restore(hIdx - 1); }
+  function redo() { if (hIdx < hist.length - 1) restore(hIdx + 1); }
+
+  undoBtn.addEventListener("click", undo);
+  redoBtn.addEventListener("click", redo);
+  editor.addEventListener("keydown", function (e) {
+    if (!(e.ctrlKey || e.metaKey) || e.altKey) return;
+    var k = e.key.toLowerCase();
+    if (k === "z" && !e.shiftKey) { e.preventDefault(); undo(); }
+    else if (k === "y" || (k === "z" && e.shiftKey)) { e.preventDefault(); redo(); }
+  });
+  editor.addEventListener("beforeinput", function (e) {
+    if (e.inputType === "historyUndo") { e.preventDefault(); undo(); }
+    else if (e.inputType === "historyRedo") { e.preventDefault(); redo(); }
+  });
+  editor.addEventListener("input", function () { record("type"); scheduleCompile(); });
+
+  // ---- Collapsible toolbar; the choice is remembered ------------------
+  var toolbarEl = document.getElementById("toolbar");
+  var toolbarToggle = document.getElementById("toolbar-toggle");
+  var moreBtn = document.getElementById("more-toggle");
+  var morePanel = document.getElementById("more-panel");
+  function remember(key, on) { try { localStorage.setItem(key, on ? "1" : "0"); } catch (e) {} }
+  function recall(key) { try { return localStorage.getItem(key); } catch (e) { return null; } }
+  function showToolbar(on) {
+    toolbarEl.hidden = !on;
+    toolbarToggle.setAttribute("aria-expanded", String(on));
+  }
+  function showMore(on) {
+    morePanel.hidden = !on;
+    moreBtn.setAttribute("aria-expanded", String(on));
+  }
+  toolbarToggle.addEventListener("click", function () {
+    showToolbar(toolbarEl.hidden);
+    remember("pintas.toolbar", !toolbarEl.hidden);
+  });
+  moreBtn.addEventListener("click", function () {
+    showMore(morePanel.hidden);
+    remember("pintas.more", !morePanel.hidden);
+  });
+  showToolbar(recall("pintas.toolbar") !== "0");
+  showMore(recall("pintas.more") === "1");
+
+  editor.value = JSON.parse(document.getElementById("initial-source").textContent);
+  record("edit");
+  highlight();
+  compileNow();
+})();
+</script>
+</body>
+</html>

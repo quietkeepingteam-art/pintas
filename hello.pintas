@@ -1,0 +1,67 @@
+# Pintas 0.6 — full landing-page example
+panid "Pintas Demo"
+ulo "Pintas - Napintas a Webpage"
+tema "asul"
+
+dalan
+silpo "Umuna" "#umuna"
+silpo "Features" "#features"
+silpo "Pricing" "#pricing"
+silpo "Kontak" "#kontak"
+murdong
+
+immuna
+texto "Kablaaw!"
+subtexto "Aramiden ti napintas a webpage babaen iti Ilokano."
+ayab "Contact Us" "mailto:hello@example.com"
+ayab "Learn More" "#features"
+murdong
+
+garrapon
+pagtudo "FEATURES"
+texto "Simple, powerful, Pintas."
+butangan "Add structured sections without writing HTML or CSS."
+
+duakolum
+garrapon
+pagimbagan "Napardas" "Simple commands compile into clean HTML."
+murdong
+garrapon
+pagimbagan "Napintas" "Themes and responsive cards make pages look polished."
+murdong
+murdong
+murdong
+
+pila
+
+tengnga
+texto "Pricing"
+listaan
+ringgor "Plano" "Presyo" "Kasapulan"
+ringgor "Basic" "Libre" "Umuna a proyekto"
+ringgor "Pro" "₱499" "Ad-adu a features"
+ringgor "Business" "₱999" "Para kadagiti team"
+pila
+
+garrapon
+texto "Ready to build?"
+butangan "Start creating your own Pintas webpage today."
+ayab "Email Us" "mailto:hello@example.com"
+ayab "Call Us" "tel:+639000000000"
+murdong
+
+texto "More UI"
+saludsod "Ania ti Pintas?" "Ti Pintas ket maysa a simple a Ilokano-inspired language para iti webpages."
+saludsod "Mabalin kadi iti countdown?" "Wen. Ipaay laeng ti ISO 8601 a target date."
+pagbilangan "2026-12-31T23:59:59" "Launching soon"
+pagsuratan "Naganmo" "Isurat ditoy ti nagan mo"
+
+ladawanan
+ladawan "https://picsum.photos/seed/pintas1/600/450"
+ladawan "https://picsum.photos/seed/pintas2/600/450"
+ladawan "https://picsum.photos/seed/pintas3/600/450"
+murdong
+
+udi
+butangan "Naaramid babaen ti Pintas"
+murdong

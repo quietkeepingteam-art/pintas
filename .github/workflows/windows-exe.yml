@@ -1,0 +1,49 @@
+name: Build Windows app
+
+# Builds Pintas.exe on a Windows machine (PyInstaller can't cross-compile).
+#   - Run it by hand:  Actions tab -> "Build Windows app" -> Run workflow
+#     (download Pintas.exe from the run's Artifacts)
+#   - Or publish a release:  git tag v0.6.2 && git push origin v0.6.2
+#     (Pintas.exe is attached to the GitHub Release automatically)
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write   # lets the release step attach the .exe
+
+jobs:
+  windows-exe:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install PyInstaller
+        run: pip install pyinstaller
+
+      - name: Build Pintas.exe
+        run: pyinstaller --onefile --name Pintas --icon assets/pintas.ico pintas_app.py
+
+      - name: Smoke test (compile an example with the packaged exe)
+        shell: pwsh
+        run: |
+          .\dist\Pintas.exe hello.pintas smoke\index.html
+          if ($LASTEXITCODE -ne 0 -or -not (Test-Path smoke\index.html)) {
+            throw "Pintas.exe could not compile hello.pintas"
+          }
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Pintas-windows
+          path: dist/Pintas.exe
+
+      - name: Attach to the GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/Pintas.exe
