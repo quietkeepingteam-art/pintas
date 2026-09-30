@@ -24,6 +24,7 @@ import threading
 import time
 import webbrowser
 from pathlib import Path
+from urllib.parse import quote
 
 
 def value(s):
@@ -56,6 +57,7 @@ CONTAINER_KINDS = {
     "duakolum": ("div", "pintas-duakolum"),
     "dalan": ("nav", "pintas-dalan"),
     "ladawanan": ("section", "pintas-ladawanan"),
+    "karusel": ("section", "pintas-karusel"),
 }
 
 # One-line list-item commands. Consecutive lines of the same command are
@@ -70,6 +72,98 @@ YOUTUBE_ID = re.compile(
     r"(?:youtube\.com/watch\?(?:[^\"\s]*&)?v=|youtu\.be/|youtube\.com/embed/)"
     r"([A-Za-z0-9_-]{11})"
 )
+
+# Google Maps embed. The classic `?q=...&output=embed` form needs no API
+# key, so a page stays a single static file. `mapa` takes a place name,
+# an address, or "lat,lng" coordinates.
+MAPA_MAX_LENGTH = 200
+MAPA_ZOOM_RANGE = (1, 21)
+
+CAROUSEL_SLIDE_PREFIX = '<img class="pintas-karusel-slide"'
+
+CAROUSEL_SCRIPT = (
+    "  <script>document.querySelectorAll('.pintas-karusel').forEach(function(el){"
+    "var track=el.querySelector('.pintas-karusel-riles');if(!track)return;"
+    "var dots=el.querySelectorAll('.pintas-karusel-tuldo button'),n=track.children.length;"
+    "function idx(){return Math.round(track.scrollLeft/track.clientWidth)}"
+    "function go(i){track.scrollTo({left:((i%n)+n)%n*track.clientWidth,behavior:'smooth'})}"
+    "function mark(){var i=idx();dots.forEach(function(d,k){d.setAttribute('aria-current',k===i?'true':'false')})}"
+    "var prev=el.querySelector('[data-dir=prev]'),next=el.querySelector('[data-dir=next]');"
+    "if(prev)prev.addEventListener('click',function(){go(idx()-1)});"
+    "if(next)next.addEventListener('click',function(){go(idx()+1)});"
+    "dots.forEach(function(d,k){d.addEventListener('click',function(){go(k)})});"
+    "track.addEventListener('scroll',mark,{passive:true});"
+    "track.addEventListener('keydown',function(e){"
+    "if(e.key==='ArrowLeft'){e.preventDefault();go(idx()-1)}"
+    "else if(e.key==='ArrowRight'){e.preventDefault();go(idx()+1)}});"
+    "mark()});</script>"
+)
+
+
+def build_carousel(slides, line_no):
+    """Wrap the `ladawan` slides collected inside a `karusel` block.
+
+    Slides are a plain scroll-snap strip, so swiping and scrolling work even
+    with JavaScript off; the arrows, dots and arrow keys are a progressive
+    extra. With a single picture there is nothing to move between, so no
+    controls are drawn.
+    """
+    if not slides or not all(s.lstrip().startswith(CAROUSEL_SLIDE_PREFIX) for s in slides):
+        raise SyntaxError(
+            f"Linya {line_no}: Ti 'karusel' ket ladawan laeng ti mabalin "
+            "a mairaman (kaasi-asi a maysa wenno ad-adu a 'ladawan')"
+        )
+    n = len(slides)
+    inner = ['<div class="pintas-karusel-riles" tabindex="0" aria-label="Karusel ti ladawan">']
+    inner += [s.strip() for s in slides]
+    inner.append("</div>")
+    if n > 1:
+        inner.append(
+            '<button type="button" class="pintas-karusel-btn pintas-karusel-kaawan" '
+            'data-dir="prev" aria-label="Napalabas">&#8249;</button>'
+        )
+        inner.append(
+            '<button type="button" class="pintas-karusel-btn pintas-karusel-kanawan" '
+            'data-dir="next" aria-label="Sumaruno">&#8250;</button>'
+        )
+        dots = "".join(
+            f'<button type="button" aria-label="Ladawan {i}" aria-current="false"></button>'
+            for i in range(1, n + 1)
+        )
+        inner.append(f'<div class="pintas-karusel-tuldo">{dots}</div>')
+    return inner
+
+
+def build_mapa(place, zoom, line_no):
+    """Return the HTML for a `mapa` command, or raise SyntaxError."""
+    place = place.strip()
+    if not place:
+        raise SyntaxError(f"Linya {line_no}: Ti 'mapa' ket kasapulan iti lugar wenno address")
+    if len(place) > MAPA_MAX_LENGTH:
+        raise SyntaxError(
+            f"Linya {line_no}: Ti lugar ti mapa ket saan a mabalin a lumab-as "
+            f"iti {MAPA_MAX_LENGTH} a karakter"
+        )
+    q = quote(place, safe="")
+    src = f"https://www.google.com/maps?q={q}&output=embed"
+    if zoom is not None:
+        if not zoom.isdigit() or not (MAPA_ZOOM_RANGE[0] <= int(zoom) <= MAPA_ZOOM_RANGE[1]):
+            raise SyntaxError(
+                f"Linya {line_no}: Ti zoom ti mapa ket numero manipud "
+                f"{MAPA_ZOOM_RANGE[0]} agingga {MAPA_ZOOM_RANGE[1]}"
+            )
+        src += f"&z={int(zoom)}"
+    open_url = f"https://www.google.com/maps/search/?api=1&query={q}"
+    return (
+        '  <div class="pintas-mapa">'
+        '<div class="pintas-mapa-frame"><iframe '
+        f'src="{html.escape(src, quote=True)}" '
+        f'title="Mapa: {html.escape(place, quote=True)}" '
+        'loading="lazy" referrerpolicy="no-referrer-when-downgrade" allowfullscreen></iframe></div>'
+        f'<a class="pintas-mapa-silpo" href="{html.escape(open_url, quote=True)}" '
+        'target="_blank" rel="noopener noreferrer">Ukat iti Google Maps</a>'
+        '</div>'
+    )
 
 
 # A tasteful default look, applied to every page before any
@@ -182,6 +276,32 @@ BASELINE_CSS = [
     ".pintas-ladawanan { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 0.8rem; margin: 1.5rem 0; }",
     ".pintas-ladawanan img { width: 100%; aspect-ratio: 4 / 3; object-fit: cover; display: block; transition: transform 0.2s ease; cursor: zoom-in; }",
     ".pintas-ladawanan img:hover { transform: scale(1.02); }",
+    ".pintas-karusel { position: relative; margin: 1.5rem 0; overflow: hidden; "
+    "border-radius: var(--pintas-card-radius); box-shadow: var(--pintas-card-shadow); }",
+    ".pintas-karusel-riles { display: flex; overflow-x: auto; scroll-snap-type: x mandatory; "
+    "scrollbar-width: none; -webkit-overflow-scrolling: touch; outline: none; }",
+    ".pintas-karusel-riles::-webkit-scrollbar { display: none; }",
+    ".pintas-karusel-riles:focus-visible { box-shadow: inset 0 0 0 3px var(--pintas-accent); }",
+    ".pintas-karusel-slide { flex: 0 0 100%; width: 100%; aspect-ratio: 16 / 9; object-fit: cover; "
+    "display: block; scroll-snap-align: center; border-radius: 0; }",
+    ".pintas-karusel-btn { position: absolute; top: 50%; transform: translateY(-50%); width: 2.5rem; "
+    "height: 2.5rem; padding: 0; border-radius: 50%; font-size: 1.6rem; line-height: 1; "
+    "background: color-mix(in srgb, var(--pintas-card-bg) 88%, transparent); color: var(--pintas-text); "
+    "box-shadow: 0 1px 4px rgba(0,0,0,0.25); }",
+    ".pintas-karusel-btn:hover { background: var(--pintas-card-bg); }",
+    ".pintas-karusel-kaawan { left: 0.6rem; }",
+    ".pintas-karusel-kanawan { right: 0.6rem; }",
+    ".pintas-karusel-tuldo { position: absolute; left: 0; right: 0; bottom: 0.6rem; display: flex; "
+    "justify-content: center; gap: 0.45rem; pointer-events: none; }",
+    ".pintas-karusel-tuldo button { width: 0.6rem; height: 0.6rem; padding: 0; border-radius: 50%; "
+    "background: rgba(255,255,255,0.55); box-shadow: 0 0 0 1px rgba(0,0,0,0.3); pointer-events: auto; }",
+    '.pintas-karusel-tuldo button[aria-current="true"] { background: var(--pintas-accent); }',
+    ".pintas-karusel-tuldo button:hover { background: #ffffff; }",
+    ".pintas-mapa { margin: 1.5rem 0; text-align: left; }",
+    ".pintas-mapa-frame { position: relative; aspect-ratio: 16 / 9; min-height: 240px; "
+    "border-radius: var(--pintas-card-radius); overflow: hidden; box-shadow: var(--pintas-card-shadow); }",
+    ".pintas-mapa-frame iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }",
+    ".pintas-mapa-silpo { display: inline-block; margin-top: 0.5rem; font-size: 0.9rem; }",
     ".pintas-pagsuratan { display: block; width: 100%; box-sizing: border-box; margin: 0.7rem 0; padding: 0.75rem 0.9rem; font: inherit; color: var(--pintas-text); background: var(--pintas-bg); border: 1px solid color-mix(in srgb, var(--pintas-muted) 35%, transparent); border-radius: var(--pintas-radius); outline: none; }",
     ".pintas-pagsuratan:focus { border-color: var(--pintas-accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--pintas-accent) 18%, transparent); }",
     ".pintas-hidden { display: none; }",
@@ -355,6 +475,25 @@ def url_scheme(url):
 
 
 LINK_SCHEMES = ("http", "https", "mailto", "tel")
+
+# File extensions a favicon may have, so the <link> can say what it is.
+FAVICON_TYPES = {
+    ".svg": "image/svg+xml", ".png": "image/png", ".ico": "image/x-icon",
+    ".gif": "image/gif", ".jpg": "image/jpeg", ".jpeg": "image/jpeg",
+    ".webp": "image/webp",
+}
+
+
+def favicon_mime(src):
+    """MIME type of a favicon source (data: URI or file name), or None."""
+    m = re.match(r"^data:(image/[a-z0-9.+\-]+)", src.strip(), re.IGNORECASE)
+    if m:
+        return m.group(1).lower()
+    path = re.split(r"[?#]", src)[0].lower()
+    for ext, mime in FAVICON_TYPES.items():
+        if path.endswith(ext):
+            return mime
+    return None
 
 
 def check_link_url(url, line_no):
@@ -689,6 +828,7 @@ def compile_pintas(source, live_reload=False):
     selected_theme = None  # last `tema` wins, same as its CSS variables do
     container_names = {}  # name -> line declared, shared across ALL container kinds
     toggle_targets = {}  # target name -> line referenced, validated after the loop
+    favicons = []  # sources from `ladawan-ulo`, emitted as <link rel="icon"> in <head>
     visibility_placeholders = []  # [(token, name), ...] resolved after the loop
     next_placeholder = 0
 
@@ -760,6 +900,8 @@ def compile_pintas(source, live_reload=False):
                 finished = containers.pop()
                 name = finished["name"]
                 tag, base_class = CONTAINER_KINDS[finished["kind"]]
+                if finished["kind"] == "karusel":
+                    finished["buffer"] = build_carousel(finished["buffer"], finished["line"])
                 if name:
                     next_placeholder += 1
                     token = f"PINTASVIS{next_placeholder}TOKEN"
@@ -773,7 +915,7 @@ def compile_pintas(source, live_reload=False):
             else:
                 raise SyntaxError(
                     f"Linya {line_no}: 'murdong' nga awan ti nailukatan "
-                    "('estilo', 'garrapon', 'immuna', 'udi' wenno 'duakolum')"
+                    "('estilo', 'garrapon', 'immuna', 'udi', 'duakolum' wenno 'karusel')"
                 )
             continue
 
@@ -782,6 +924,16 @@ def compile_pintas(source, live_reload=False):
         # still treated as CSS text, not as a command.
         if in_style:
             css.append(css_safe(line))
+            continue
+
+        if line.startswith("ladawan-ulo "):
+            src = value(line[len("ladawan-ulo "):])
+            if not src:
+                raise SyntaxError(f"Linya {line_no}: Ti 'ladawan-ulo' ket kasapulan iti ladawan")
+            check_image_src(src, line_no)
+            if not is_remote(src):
+                local_images.append(src)
+            favicons.append(src)
             continue
 
         container_kind = next(
@@ -919,6 +1071,18 @@ def compile_pintas(source, live_reload=False):
             )
             continue
 
+        if line.startswith("mapa "):
+            # Raw text, not unicode_escape-decoded: place names such as
+            # "Peñablanca" must reach Google exactly as typed.
+            parts = re.findall(r'"(.*?)"', line[5:])
+            if len(parts) not in (1, 2):
+                raise SyntaxError(
+                    f"Linya {line_no}: Ti 'mapa' ket kasapulan iti lugar wenno address "
+                    "ken mabalin a zoom (kas iti mapa \"Rizal Park, Manila\" \"15\")"
+                )
+            emit(build_mapa(parts[0], parts[1] if len(parts) == 2 else None, line_no))
+            continue
+
         if line.startswith("bidyo "):
             m = YOUTUBE_ID.search(value(line[6:]))
             if not m:
@@ -977,10 +1141,16 @@ def compile_pintas(source, live_reload=False):
             check_image_src(src, line_no)
             if not is_remote(src):
                 local_images.append(src)
-            emit(
-                f'  <img src="{html.escape(src, quote=True)}" '
-                f'alt="Ladawan" style="max-width:100%;height:auto;">'
-            )
+            if containers and containers[-1]["kind"] == "karusel":
+                emit(
+                    f'  {CAROUSEL_SLIDE_PREFIX} src="{html.escape(src, quote=True)}" '
+                    f'alt="Ladawan {len(containers[-1]["buffer"]) + 1}" loading="lazy">'
+                )
+            else:
+                emit(
+                    f'  <img src="{html.escape(src, quote=True)}" '
+                    f'alt="Ladawan" style="max-width:100%;height:auto;">'
+                )
         elif line.startswith("pagtudo "):
             emit(f'  <span class="pintas-badge">{html.escape(value(line[8:]))}</span>')
         elif line.startswith("baga "):
@@ -1038,6 +1208,10 @@ def compile_pintas(source, live_reload=False):
             )
 
     out.append(f"  <title>{html.escape(title)}</title>")
+    for src in favicons:
+        mime = favicon_mime(src)
+        type_attr = f' type="{mime}"' if mime else ""
+        out.append(f'  <link rel="icon"{type_attr} href="{html.escape(src, quote=True)}">')
     if selected_theme:
         out += theme_font_links(selected_theme)
     if css:
@@ -1048,6 +1222,8 @@ def compile_pintas(source, live_reload=False):
     out += body
     if any('class="pintas-pagbilangan"' in line for line in body):
         out.append("  <script>document.querySelectorAll('.pintas-pagbilangan').forEach(function(el){var target=new Date(el.dataset.target).getTime();function tick(){var d=Math.max(0,target-Date.now()),s=Math.floor(d/1000),days=Math.floor(s/86400);s%=86400;var hours=Math.floor(s/3600);s%=3600;var mins=Math.floor(s/60);s%=60;el.querySelector('[data-unit=days]').textContent=days;el.querySelector('[data-unit=hours]').textContent=hours;el.querySelector('[data-unit=minutes]').textContent=mins;el.querySelector('[data-unit=seconds]').textContent=s;if(d<=0)clearInterval(timer)}var timer=setInterval(tick,1000);tick()});</script>")
+    if any('pintas-karusel-riles' in line for line in body):
+        out.append(CAROUSEL_SCRIPT)
     if live_reload:
         out.append(LIVE_RELOAD_SCRIPT)
     out += ["</body>", "</html>"]

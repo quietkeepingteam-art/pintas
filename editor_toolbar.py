@@ -17,6 +17,8 @@ ICONS = {
     "ladawan": '<rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="1.6"/><path d="M4 18l5-5 4 4 3-3 4 4"/>',
     "bidyo": '<rect x="3" y="5" width="18" height="14" rx="3"/><path d="M10 9.5v5l4.5-2.5z" fill="currentColor"/>',
     "ladawanan": '<rect x="3" y="3" width="8" height="8" rx="1.5"/><rect x="13" y="3" width="8" height="8" rx="1.5"/><rect x="3" y="13" width="8" height="8" rx="1.5"/><rect x="13" y="13" width="8" height="8" rx="1.5"/>',
+    "karusel": '<rect x="6" y="5" width="12" height="11" rx="1.5"/><path d="M3 8v5M21 8v5"/><circle cx="9.5" cy="19.5" r=".9" fill="currentColor" stroke="none"/><circle cx="12" cy="19.5" r="1.2" fill="currentColor" stroke="none"/><circle cx="14.5" cy="19.5" r=".9" fill="currentColor" stroke="none"/>',
+    "mapa": '<path d="M12 21s6-5.6 6-10.5a6 6 0 0 0-12 0C6 15.4 12 21 12 21z"/><circle cx="12" cy="10.5" r="2.3"/>',
     "garrapon": '<rect x="6" y="3" width="12" height="3" rx="1"/><path d="M7 6v1.5C5.5 8.5 5 9.5 5 11v7a3 3 0 0 0 3 3h8a3 3 0 0 0 3-3v-7c0-1.5-.5-2.5-2-3.5V6"/>',
     "estilo": '<path d="M9 4C7 4 6.5 5 6.5 6.5v2c0 1.2-.7 2.5-2.5 3.5 1.8 1 2.5 2.3 2.5 3.5v2C6.5 19 7 20 9 20"/><path d="M15 4c2 0 2.5 1 2.5 2.5v2c0 1.2.7 2.5 2.5 3.5-1.8 1-2.5 2.3-2.5 3.5v2c0 1.5-.5 2.5-2.5 2.5"/>',
     "tengnga": '<path d="M4 6h16M7 12h10M5 18h14"/>',
@@ -44,6 +46,9 @@ ICONS = {
     "teksto-kolor": '<path d="M6 15.5 12 3.5l6 12M8.3 11.5h7.4"/><path d="M5 20h14" stroke-width="3.2"/>',
     "gen-theme": '<path d="M11 3l1.8 5.2L18 10l-5.2 1.8L11 17l-1.8-5.2L4 10l5.2-1.8z"/><path d="M19 15v5M16.5 17.5h5"/>',
     "gen-pattern": '<rect x="3" y="3" width="18" height="18" rx="2" opacity=".45"/><path d="M3 7.5A4.5 4.5 0 0 0 7.5 3M12 7.5A4.5 4.5 0 0 0 7.5 12M16.5 3A4.5 4.5 0 0 0 21 7.5M12 7.5A4.5 4.5 0 0 1 16.5 12M7.5 12A4.5 4.5 0 0 0 12 16.5M3 16.5A4.5 4.5 0 0 1 7.5 21M12 16.5A4.5 4.5 0 0 0 16.5 12M21 16.5A4.5 4.5 0 0 0 16.5 21"/>',
+    "favicon": '<path d="M4 19V8a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v11"/><path d="M2.5 19h19"/><circle cx="8.5" cy="11.5" r="1.8" fill="currentColor" stroke="none"/><path d="M12 11.5h1.5M7.5 15.5h6"/>',
+    "gen-favicon": '<circle cx="10.5" cy="13.5" r="7"/><path d="M8 10.5h5M8 13.5h3.5M8 16.5h5M8 10.5v6"/><path d="M19 3v4M17 5h4"/>',
+    "gen-ui": '<rect x="3" y="6" width="15" height="14" rx="2"/><path d="M3 10.5h15"/><path d="M6.5 14h6M6.5 17h3.5"/><path d="M19 2.5v5M16.5 5h5"/>',
     "gen-pattern-card": '<rect x="3" y="3" width="18" height="18" rx="2.5"/><rect x="7" y="7" width="10" height="10" rx="1.5" stroke-dasharray="2 2"/>',
     "undo": '<path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/>',
     "redo": '<path d="m15 14 5-5-5-5"/><path d="M20 9H9.5a5.5 5.5 0 0 0 0 11H13"/>',
@@ -89,6 +94,8 @@ GROUPS = [
     [  # page
         _snip("panid", "Panid", "panid", 'panid "', "Titulo ti Website", '"'),
         _snip("ulo", "Ulo", "ulo", 'ulo "', "Titulo ti Panid", '"'),
+        _snip("favicon", "Ladawan-ulo", "ladawan-ulo", 'ladawan-ulo "', "favicon.svg", '"',
+              tip="Ladawan-ulo (ladawan-ulo) - ti ladawan iti tab ti browser"),
     ],
     [  # text
         _snip("texto", "Dakkel a Ulo", "texto", 'texto "', "Ballaigi ti ulo daytoy", '"'),
@@ -108,6 +115,12 @@ GROUPS = [
         _snip("ladawan", "Ladawan", "ladawan", 'ladawan "', "ladawan.jpg", '"'),
         _block("ladawanan", "Ladawanan", "ladawanan", "ladawanan"),
         _snip("bidyo", "Bidyo", "bidyo", 'bidyo "', "https://youtu.be/aqz-KE-bpKQ", '"'),
+        _block("karusel", "Karusel", "karusel", "karusel",
+               body='ladawan "https://picsum.photos/seed/pintas1/800/450"\n'
+                    'ladawan "https://picsum.photos/seed/pintas2/800/450"\n'
+                    'ladawan "https://picsum.photos/seed/pintas3/800/450"'),
+        _snip("mapa", "Mapa", "mapa", 'mapa "', "Rizal Park, Manila", '"',
+              tip="Mapa (mapa) - Google Maps a mapa ti lugar wenno address"),
     ],
     [  # layout
         _block("immuna", "Immuna", "immuna", "immuna"),
@@ -151,6 +164,10 @@ GENERATORS = [
          tip="Kusikus-style a pattern iti panid"),
     dict(icon="gen-pattern-card", label="Pattern ti Lalaem", id="gen-pattern-card-btn",
          tip="Kusikus-style a pattern iti lalaem"),
+    dict(icon="gen-ui", label="Baro a UI", id="gen-ui-btn",
+         tip="Mangaramid iti kompleto a panid nga pinanagan iti mythical creature ti Filipinas (mangsukat iti amin)"),
+    dict(icon="gen-favicon", label="Baro a Favicon", id="gen-favicon-btn",
+         tip="Mangaramid iti favicon manipud iti ulo ken accent ti panid"),
 ]
 
 

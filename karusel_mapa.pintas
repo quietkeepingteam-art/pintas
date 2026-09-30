@@ -1,0 +1,15 @@
+# Pintas - carousel (karusel) and Google Map (mapa) example
+panid "Karusel ken Mapa"
+ulo "Karusel ken Mapa - Pintas"
+tema "asul"
+
+texto "Dagiti Ladawan"
+karusel
+ladawan "https://picsum.photos/seed/pintas1/800/450"
+ladawan "https://picsum.photos/seed/pintas2/800/450"
+ladawan "https://picsum.photos/seed/pintas3/800/450"
+murdong
+
+texto "Ayanmi"
+butangan "Umayka iti opisina mi."
+mapa "Rizal Park, Manila"

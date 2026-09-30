@@ -89,15 +89,65 @@ def generate_pattern_snippet(seed, size, accent, bg, target):
         raise ValueError("Sayop a kolor.")
     if target not in ("body", ".garrapon"):
         raise ValueError("Sayop a target.")
-    size = max(2, min(12, int(size)))
-    line = _mix_hex(accent, bg, 0.22)  # subtle, so text stays readable on top
-    svg, unit = pg.generate_pattern_svg(seed, size, line, bg)
+    if seed is None:
+        seed = random.SystemRandom().randrange(10**9)
+    # The seed picks the whole look (style, symmetry, sizes) so each click
+    # gives a visibly different pattern; an explicit size still wins.
+    recipe = pg.random_recipe(seed)
+    if size is not None:
+        recipe["grid_size"] = max(2, min(12, int(size)))
+    line = _mix_hex(accent, bg, pg.STYLE_STRENGTH[recipe["style"]])
+    svg, unit = pg.generate_pattern_svg(seed, line_color=line, bg_color=bg, **recipe)
     label = "pattern-generator" + ("-lalaem" if target == ".garrapon" else "")
     return (
         f"# >>> {label}\n"
         + pg.estilo_snippet(svg, unit, target)
         + f"\n# <<< {label}"
     )
+
+
+def generate_favicon_snippet(seed, title, accent):
+    """Ask favicon_generator.py for a favicon and return a block of
+    `ladawan-ulo` lines with the icons embedded (data: URIs), so pasting
+    it into the page needs no extra files."""
+    import favicon_generator as fg
+
+    if not HEX_COLOR.match(accent or ""):
+        raise ValueError("Sayop a kolor.")
+    if seed is None:
+        seed = random.SystemRandom().randrange(10**9)
+    fav = fg.generate_favicon(str(title or "")[:200], accent, seed, sizes=(32,))
+    return "# >>> favicon-generator\n" + fav["snippet_inline"] + "\n# <<< favicon-generator"
+
+
+def generate_ui_source(seed):
+    """Ask ui_generator.py for a complete, named page (a Philippine mythical
+    creature, or a hybrid of two) and return its Pintas source plus the
+    colors the other generator buttons reuse.
+
+    Unlike the theme/pattern/favicon generators this is a WHOLE page, not a
+    block to drop in, so the editor replaces its entire text with it. The
+    source has already been compiled by the real compiler inside
+    `generate_ui`, so it is known to be valid.
+    """
+    import ui_generator as ug  # lazy: the generators import pintas
+
+    if seed is None:
+        seed = random.SystemRandom().randrange(10**9)
+    try:
+        if isinstance(seed, bool):
+            raise TypeError("bool")
+        seed = int(seed)
+    except (ValueError, TypeError, OverflowError):
+        raise ValueError("Sayop a seed.") from None
+    ui = ug.generate_ui(seed=seed)
+    palette = ui["palette"]
+    return {
+        "source": ui["source"],
+        "name": ui["name"],
+        "accent": palette["accent"],
+        "bg": palette["bg"],
+    }
 
 
 # Words the editor's syntax highlighter recognises, by role. Built from the
@@ -111,7 +161,7 @@ EDITOR_KEYWORDS = {
         "panid", "ulo", "texto", "subtexto", "butangan", "sao", "baga",
         "pagtudo", "pagpindutan", "silpo", "ladawan", "bidyo", "pagimbagan",
         "listaan", "ringgor", "ayab", "saludsod", "pagbilangan", "pagsuratan",
-        "pila", "tengnga", "kolor", "teksto-kolor", "tema",
+        "pila", "tengnga", "kolor", "teksto-kolor", "tema", "ladawan-ulo", "mapa",
     }),
 }
 
@@ -125,6 +175,7 @@ EDITOR_HTML_TEMPLATE = """<!DOCTYPE html>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Pintas Editor</title>
+__FAVICON_LINKS__
 <style>
   :root { color-scheme: light; }
   * { box-sizing: border-box; }
@@ -344,13 +395,56 @@ __TOOLBAR_CSS__
   });
   document.getElementById("gen-pattern-btn").addEventListener("click", function () {
     generate("/generate-pattern",
-      { size: 6, accent: lastColors.accent, bg: lastColors.bg, target: "body" },
+      { accent: lastColors.accent, bg: lastColors.bg, target: "body" },
       "pattern-generator");
   });
   document.getElementById("gen-pattern-card-btn").addEventListener("click", function () {
     generate("/generate-pattern",
-      { size: 4, accent: lastColors.accent, bg: lastColors.bg, target: ".garrapon" },
+      { accent: lastColors.accent, bg: lastColors.bg, target: ".garrapon" },
       "pattern-generator-lalaem");
+  });
+
+  document.getElementById("gen-favicon-btn").addEventListener("click", function () {
+    var m = /^\\s*ulo\\s+"([^"]*)"/m.exec(editor.value) || /^\\s*panid\\s+"([^"]*)"/m.exec(editor.value);
+    generate("/generate-favicon", { accent: lastColors.accent, title: m ? m[1] : "" },
+      "favicon-generator");
+  });
+
+  // Baro a UI writes a WHOLE page, so it replaces the entire editor text as
+  // one undo step. It only asks first when that would throw away something
+  // other than an untouched generated UI, so re-rolling is one click.
+  var lastGeneratedUi = null, uiBusy = false;
+  document.getElementById("gen-ui-btn").addEventListener("click", function () {
+    if (uiBusy) return;
+    var cur = editor.value;
+    if (cur.trim() !== "" && cur !== lastGeneratedUi &&
+        !window.confirm("Suktan ti amin a nakasurat ditoy iti baro a UI? (Mabalin ti Undo)")) return;
+    uiBusy = true;
+    fetch("/generate-ui", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ seed: Math.floor(Math.random() * 1000000) })
+    })
+      .then(function (res) { return res.json(); })
+      .then(function (data) {
+        if (!data.ok) {
+          errorBox.textContent = data.error;
+          errorBox.style.display = "block";
+          return;
+        }
+        lastColors = { accent: data.accent, bg: data.bg };
+        lastGeneratedUi = data.source;
+        editor.value = data.source;
+        editor.focus();
+        editor.setSelectionRange(0, 0);
+        editor.scrollTop = 0;
+        commit();
+      })
+      .catch(function () {
+        errorBox.textContent = "Saan a maka-konekta iti server.";
+        errorBox.style.display = "block";
+      })
+      .finally(function () { uiBusy = false; });
   });
 
   // ---- Syntax highlighting -------------------------------------------
@@ -594,6 +688,8 @@ def render_editor_html(source_path):
     page = page.replace("__REDO_ICON__", tb.icon_svg("redo"))
     page = page.replace("__CHEVRON_ICON__", tb.icon_svg("chevron"))
     page = page.replace("__KEYWORDS_JSON__", json_safe(json.dumps(EDITOR_KEYWORDS)))
+    import editor_icon  # lazy, like the toolbar: the editor's own tab icon
+    page = page.replace("__FAVICON_LINKS__", editor_icon.favicon_links())
     # The user's source goes in last so nothing inside it can be mistaken
     # for one of the placeholders above.
     return page.replace("__INITIAL_SOURCE_JSON__", embedded)
@@ -650,12 +746,27 @@ class EditorHandler(http.server.SimpleHTTPRequestHandler):
         elif self.path == "/generate-pattern":
             try:
                 snippet = generate_pattern_snippet(
-                    payload.get("seed"), payload.get("size", 6),
+                    payload.get("seed"), payload.get("size"),
                     payload.get("accent", "#2563eb"), payload.get("bg", "#f0f6ff"),
                     payload.get("target", "body"),
                 )
                 self._send_json(200, {"ok": True, "snippet": snippet})
             except (ValueError, TypeError, ImportError) as e:
+                self._send_json(200, {"ok": False, "error": str(e)})
+        elif self.path == "/generate-favicon":
+            try:
+                snippet = generate_favicon_snippet(
+                    payload.get("seed"), payload.get("title", ""),
+                    payload.get("accent", "#2563eb"),
+                )
+                self._send_json(200, {"ok": True, "snippet": snippet})
+            except (ValueError, TypeError, ImportError) as e:
+                self._send_json(200, {"ok": False, "error": str(e)})
+        elif self.path == "/generate-ui":
+            try:
+                result = generate_ui_source(payload.get("seed"))
+                self._send_json(200, dict(result, ok=True))
+            except (ValueError, TypeError, SyntaxError, ImportError) as e:
                 self._send_json(200, {"ok": False, "error": str(e)})
         elif self.path == "/save":
             source = payload.get("source", "")

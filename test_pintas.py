@@ -596,6 +596,63 @@ def test_generated_pattern_rejects_bad_input():
         pintas_editor.generate_pattern_snippet(1, 4, "#2563eb", "#ffffff", "html")
 
 
+def test_generate_ui_source_returns_a_compilable_whole_page():
+    import re
+
+    r = pintas_editor.generate_ui_source(seed=7)
+    html, _ = pintas.compile_pintas(r["source"])
+    assert r["name"] in html and r["accent"] in html and r["bg"] in html
+    assert r["source"].lstrip().startswith("#")          # a whole file, not a block
+    assert "# >>>" not in r["source"]                     # not a replace-in-place block
+    assert re.fullmatch(r"#[0-9a-fA-F]{6}", r["accent"]) and re.fullmatch(r"#[0-9a-fA-F]{6}", r["bg"])
+
+
+def test_generate_ui_source_is_reproducible_per_seed_and_varies():
+    assert pintas_editor.generate_ui_source(5) == pintas_editor.generate_ui_source(5)
+    assert pintas_editor.generate_ui_source(1)["source"] != pintas_editor.generate_ui_source(2)["source"]
+
+
+def test_generate_ui_source_without_a_seed_still_works_and_bad_seed_is_rejected():
+    assert pintas_editor.generate_ui_source(None)["source"]
+    import pytest
+    for bad in ("abc", True, [1], {"a": 1}, float("inf"), float("nan")):
+        with pytest.raises(ValueError):
+            pintas_editor.generate_ui_source(bad)
+
+
+def test_editor_server_generate_ui_round_trip(tmp_path):
+    source_path = tmp_path / "site.pintas"
+    source_path.write_text('texto "old"\n', encoding="utf-8")
+    port = start_editor_server(source_path, tmp_path / "preview", 8231)
+    ok = _post_json(f"http://localhost:{port}/generate-ui", {"seed": 9})
+    assert ok["ok"] is True and ok["source"] and ok["name"]
+    assert ok["source"] == pintas_editor.generate_ui_source(9)["source"]
+    # the reply must compile exactly like the editor will compile it
+    compiled = _post_json(f"http://localhost:{port}/compile", {"source": ok["source"]})
+    assert compiled["ok"] is True
+    # bad input comes back as a JSON error, not a crashed request
+    bad = _post_json(f"http://localhost:{port}/generate-ui", {"seed": "abc"})
+    assert bad["ok"] is False and bad["error"]
+    import urllib.request as _u
+    req = _u.Request(f"http://localhost:{port}/generate-ui", data=b'{"seed": 1e999}',
+                     headers={"Content-Type": "application/json"})
+    with _u.urlopen(req, timeout=2) as res:
+        assert json.loads(res.read())["ok"] is False
+    # generating never touches the file on disk (only I-save does)
+    assert source_path.read_text(encoding="utf-8") == 'texto "old"\n'
+
+
+def test_editor_page_has_a_baro_a_ui_button_wired_to_generate_ui():
+    from pathlib import Path
+
+    page = render_editor_html(Path("/nonexistent.pintas"))
+    assert 'id="gen-ui-btn"' in page and "Baro a UI" in page
+    assert '"/generate-ui"' in page
+    # replaces the whole text through commit() so it is one undo step
+    js = page.split('getElementById("gen-ui-btn")', 1)[1]
+    assert "editor.value = data.source" in js and "commit()" in js
+
+
 # ---------- lists, columns, video ----------
 
 def test_consecutive_list_items_group_into_one_list():
@@ -628,6 +685,104 @@ def test_bidyo_embeds_youtube_only():
         assert "youtube-nocookie.com/embed/aqz-KE-bpKQ" in html
     with pytest.raises(SyntaxError):
         compile_pintas('bidyo "https://vimeo.com/123"\n')
+
+
+# ---------- karusel (carousel) ----------
+
+def test_karusel_makes_a_slide_strip_with_controls_and_script():
+    src = (
+        "karusel\n"
+        'ladawan "https://example.com/1.jpg"\n'
+        'ladawan "https://example.com/2.jpg"\n'
+        'ladawan "https://example.com/3.jpg"\n'
+        "murdong\n"
+    )
+    html, _ = compile_pintas(src)
+    assert '<section class="pintas-karusel">' in html
+    assert html.count('class="pintas-karusel-slide"') == 3
+    assert 'data-dir="prev"' in html and 'data-dir="next"' in html
+    assert html.count('alt="Ladawan ') == 3  # one alt per slide
+    assert html.count('aria-label="Ladawan ') == 3  # one dot per slide
+    assert "querySelectorAll('.pintas-karusel')" in html
+    # slides must not carry the plain-image inline style
+    assert "max-width:100%" not in html
+
+
+def test_karusel_with_one_picture_has_no_controls():
+    html, _ = compile_pintas('karusel\nladawan "https://example.com/1.jpg"\nmurdong\n')
+    assert 'class="pintas-karusel-slide"' in html
+    assert 'data-dir="prev"' not in html and "pintas-karusel-tuldo\"" not in html
+
+
+def test_karusel_script_only_added_when_used():
+    html, _ = compile_pintas('butangan "hi"\n')
+    assert "querySelectorAll('.pintas-karusel')" not in html
+
+
+def test_karusel_only_accepts_ladawan_and_needs_at_least_one():
+    with pytest.raises(SyntaxError):
+        compile_pintas("karusel\nmurdong\n")
+    with pytest.raises(SyntaxError):
+        compile_pintas('karusel\nladawan "https://example.com/1.jpg"\nbutangan "no"\nmurdong\n')
+    with pytest.raises(SyntaxError):
+        compile_pintas('karusel\nmurdong\ngarrapon\nladawan "https://example.com/1.jpg"\nmurdong\n')
+    with pytest.raises(SyntaxError):
+        compile_pintas('karusel\nladawan "https://example.com/1.jpg"\n')  # unclosed
+
+
+def test_karusel_works_with_isuble_nested_and_named_toggle():
+    src = (
+        'pagpindutan "Ipakita" "galeria"\n'
+        'garrapon\n'
+        'karusel "galeria"\n'
+        'isuble i manipud 1 agingga 4\n'
+        'ladawan "https://example.com/{{i}}.jpg"\n'
+        'murdong\n'
+        'murdong\n'
+        'murdong\n'
+    )
+    html, _ = compile_pintas(src)
+    assert html.count('class="pintas-karusel-slide"') == 4
+    assert 'id="pintas-galeria"' in html and "pintas-hidden" in html
+
+
+def test_karusel_reports_local_images_for_copying():
+    _, local = compile_pintas('karusel\nladawan "foto1.jpg"\nladawan "foto2.jpg"\nmurdong\n')
+    assert local == ["foto1.jpg", "foto2.jpg"]
+
+
+def test_karusel_rejects_unsafe_image_sources():
+    with pytest.raises(SyntaxError):
+        compile_pintas('karusel\nladawan "javascript:alert(1)"\nmurdong\n')
+
+
+# ---------- mapa (Google Maps) ----------
+
+def test_mapa_embeds_google_maps_and_keeps_non_ascii():
+    html, _ = compile_pintas('mapa "Peñablanca, Cagayan"\n')
+    assert 'src="https://www.google.com/maps?q=Pe%C3%B1ablanca%2C%20Cagayan&amp;output=embed"' in html
+    assert 'title="Mapa: Peñablanca, Cagayan"' in html
+    assert "maps/search/?api=1&amp;query=Pe%C3%B1ablanca" in html
+    assert 'loading="lazy"' in html
+
+
+def test_mapa_accepts_zoom_and_coordinates():
+    html, _ = compile_pintas('mapa "7.0731,125.6128" "15"\n')
+    assert "q=7.0731%2C125.6128&amp;output=embed&amp;z=15" in html
+
+
+@pytest.mark.parametrize("bad", ['mapa ""', "mapa", 'mapa "a" "b" "c"', 'mapa "a" "0"',
+                                 'mapa "a" "22"', 'mapa "a" "abc"', 'mapa "a" "-3"',
+                                 'mapa "' + "x" * 201 + '"'])
+def test_mapa_rejects_bad_input(bad):
+    with pytest.raises(SyntaxError):
+        compile_pintas(bad + "\n")
+
+
+def test_mapa_place_is_escaped_and_cannot_break_out_of_the_attribute():
+    html, _ = compile_pintas('mapa "<script>alert(1)</script> & co"\n')
+    assert "<script>alert(1)" not in html
+    assert "%3Cscript%3E" in html and "&lt;script&gt;" in html
 
 
 # ---------- Ilokano-only command vocabulary ----------
@@ -885,3 +1040,67 @@ def test_editor_has_undo_redo_buttons_and_keyboard_shortcuts():
     for ident in ("undo-btn", "redo-btn"):
         assert f'id="{ident}"' in page
     assert 'e.key.toLowerCase()' in page and "historyUndo" in page
+
+
+def test_pattern_recipes_cover_every_style_and_symmetry():
+    import pattern_generator as pg
+
+    recipes = [pg.random_recipe(s) for s in range(80)]
+    assert {r["style"] for r in recipes} == set(pg.STYLES)
+    assert {r["symmetric"] for r in recipes} == {True, False}
+    assert pg.random_recipe(5) == pg.random_recipe(5)  # deterministic per seed
+
+
+def test_symmetric_pattern_grid_mirrors_with_flipped_variants():
+    import random
+
+    import pattern_generator as pg
+
+    n = 6
+    g = pg._flip_grid(random.Random(9), n, True)
+    for r in range(n):
+        for c in range(n):
+            assert g[r][n - 1 - c] == 1 - g[r][c]      # left/right mirror swaps the variant
+            assert g[n - 1 - r][c] == 1 - g[r][c]      # top/bottom mirror swaps the variant
+            assert g[n - 1 - r][n - 1 - c] == g[r][c]  # both = 180 degree turn keeps it
+
+
+def test_every_pattern_style_is_valid_svg_and_seeds_look_different():
+    import xml.etree.ElementTree as ET
+
+    import pattern_generator as pg
+
+    for style in pg.STYLES:
+        for sym in (False, True):
+            svg, unit = pg.generate_pattern_svg(3, 6, "#123456", "#ffffff", 40, 3, style, sym)
+            ET.fromstring(svg)
+            assert unit == 240
+        a = pg.generate_pattern_svg(1, 6, "#123456", "#ffffff", style=style)[0]
+        b = pg.generate_pattern_svg(2, 6, "#123456", "#ffffff", style=style)[0]
+        assert a != b
+
+
+def test_editor_pattern_button_gives_varied_visible_results():
+    import base64
+    import re
+
+    import pintas_editor
+
+    def contrast(a, b):
+        def lum(h):
+            f = lambda c: c / 12.92 if c <= 0.03928 else ((c + 0.055) / 1.055) ** 2.4
+            r, g, bl = (f(int(h[i:i + 2], 16) / 255) for i in (1, 3, 5))
+            return 0.2126 * r + 0.7152 * g + 0.0722 * bl
+        hi, lo = sorted((lum(a), lum(b)), reverse=True)
+        return (hi + 0.05) / (lo + 0.05)
+
+    svgs = set()
+    for seed in range(40):
+        snip = pintas_editor.generate_pattern_snippet(seed, None, "#2563eb", "#f0f6ff", "body")
+        payload = re.search(r"base64,([A-Za-z0-9+/=]+)", snip).group(1)
+        svgs.add(base64.b64decode(payload).decode())
+        compile_pintas(snip)  # still valid Pintas
+    assert len(svgs) == 40
+    # thin-line looks must be clearly visible against the background, not 1.35:1 washed out
+    line = pintas_editor._mix_hex("#2563eb", "#f0f6ff", 0.40)
+    assert contrast(line, "#f0f6ff") >= 1.5

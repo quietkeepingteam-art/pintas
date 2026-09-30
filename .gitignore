@@ -1,27 +1,38 @@
-# Python
+# ---- Tests (not shipped) ----
+test_*.py
+*_test.py
+tests/
+conftest.py
+.pytest_cache/
+.coverage
+htmlcov/
+
+# ---- Python ----
 __pycache__/
 *.py[cod]
-.pytest_cache/
+*.egg-info/
 
-# Pintas build output
-output/
-
-# Virtual environments
+# ---- Virtual environments ----
 venv/
 .venv/
 env/
 
-# Editors / OS
+# ---- Pintas build output (compiled pages) ----
+output/
+sites/
+smoke/
+
+# ---- Generator output ----
+generated_themes/
+pattern*.svg
+
+# ---- PyInstaller (Pintas.exe is built by GitHub Actions) ----
+dist/
+build/
+*.spec
+
+# ---- Editors / OS ----
 .vscode/
 .idea/
 .DS_Store
 Thumbs.db
-
-# Generator output
-generated_themes/
-pattern*.svg
-
-# PyInstaller output
-dist/
-build/
-*.spec

@@ -8,8 +8,8 @@ visitor's browser and runs the REAL compiler there, so the playground can
 never drift from `pintas.py`. It reuses the local editor's own page
 (toolbar, highlighting, generators) and only swaps the network layer.
 
-Re-run this whenever pintas.py, theme_generator.py, pattern_generator.py or
-editor_toolbar.py change, then commit docs/.
+Re-run this whenever pintas.py, theme_generator.py, pattern_generator.py,
+favicon_generator.py, ui_generator.py, editor_icon.py or editor_toolbar.py change, then commit docs/.
 """
 import json
 import shutil
@@ -18,7 +18,8 @@ from pathlib import Path
 import pintas_editor
 
 PYODIDE_VERSION = "0.26.4"
-PY_FILES = ["pintas.py", "pintas_editor.py", "theme_generator.py", "pattern_generator.py", "editor_toolbar.py"]
+PY_FILES = ["pintas.py", "pintas_editor.py", "theme_generator.py", "pattern_generator.py",
+            "favicon_generator.py", "ui_generator.py", "editor_icon.py", "editor_toolbar.py"]
 
 # Replaces the local server: routes the editor's fetch() calls to Pyodide.
 SHIM = r"""<script src="https://cdn.jsdelivr.net/pyodide/v__PYODIDE__/full/pyodide.js"></script>
@@ -41,9 +42,17 @@ SHIM = r"""<script src="https://cdn.jsdelivr.net/pyodide/v__PYODIDE__/full/pyodi
     "            snippet, accent, bg = pintas_editor.generate_theme_snippet(p.get('seed'))",
     "            return json.dumps({'ok': True, 'snippet': snippet, 'accent': accent, 'bg': bg})",
     "        if path == '/generate-pattern':",
-    "            snippet = pintas_editor.generate_pattern_snippet(p.get('seed'), p.get('size', 6),",
+    "            snippet = pintas_editor.generate_pattern_snippet(p.get('seed'), p.get('size'),",
     "                p.get('accent', '#2563eb'), p.get('bg', '#f0f6ff'), p.get('target', 'body'))",
     "            return json.dumps({'ok': True, 'snippet': snippet})",
+    "        if path == '/generate-favicon':",
+    "            snippet = pintas_editor.generate_favicon_snippet(p.get('seed'), p.get('title', ''),",
+    "                p.get('accent', '#2563eb'))",
+    "            return json.dumps({'ok': True, 'snippet': snippet})",
+    "        if path == '/generate-ui':",
+    "            r = pintas_editor.generate_ui_source(p.get('seed'))",
+    "            r['ok'] = True",
+    "            return json.dumps(r)",
     "        return json.dumps({'ok': False, 'error': 'Unknown endpoint ' + path})",
     "    except Exception as e:",
     "        return json.dumps({'ok': False, 'error': str(e) or type(e).__name__})"

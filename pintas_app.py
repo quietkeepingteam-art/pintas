@@ -18,6 +18,9 @@ import pattern_generator  # noqa: F401  PyInstaller bundles them)
 import pintas
 import pintas_editor
 import theme_generator  # noqa: F401
+import favicon_generator  # noqa: F401
+import editor_icon  # noqa: F401
+import ui_generator  # noqa: F401
 
 DEFAULT_PORT = 8000
 

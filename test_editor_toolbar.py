@@ -43,7 +43,7 @@ def test_labels_are_unique():
 def test_button_ids_used_by_the_editor_script_exist():
     html = et.build_toolbar_html()
     for ident in ("toggle-btn", "gen-theme-btn", "gen-pattern-btn",
-                  "gen-pattern-card-btn", "theme-group"):
+                  "gen-pattern-card-btn", "gen-favicon-btn", "gen-ui-btn", "theme-group"):
         assert f'id="{ident}"' in html, ident
 
 

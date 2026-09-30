@@ -74,6 +74,7 @@ Then open `output/index.html` in your browser yourself.
 | `pagpindutan` | button — add a second `"name"` to show/hide a `garrapon` |
 | `silpo` | hyperlink — `http(s)://`, `mailto:`, `tel:`, `#anchor` or a relative page like `about.html`; other schemes (e.g. `javascript:`) are rejected |
 | `ladawan` | image — a web URL, a `data:image/` URI, or a local file (copied next to the compiled page) |
+| `ladawan-ulo` | the page's favicon (the small icon in the browser tab) — a `.svg`/`.png`/`.ico` file, a URL, or a `data:image/` URI; use it more than once to offer several formats |
 | `kolor` | background color |
 | `teksto-kolor` | text color |
 | `tema` | apply a curated color theme (see below) |
@@ -94,6 +95,8 @@ Then open `output/index.html` in your browser yourself.
 | `saludsod` | FAQ item with question and answer, e.g. `saludsod "Ania ti Pintas?" "Maysa a simple a web language."` |
 | `pagbilangan` | live countdown to an ISO 8601 date, e.g. `pagbilangan "2026-12-31T23:59:59" "Dandani"` (shows Aldaw / Oras / Minuto / Segundo) |
 | `ladawanan` / `murdong` | responsive photo gallery container; put `ladawan` lines inside |
+| `karusel` / `murdong` | swipeable picture carousel with arrows and dots; put `ladawan` lines inside (one per slide) |
+| `mapa` | embedded Google Map, e.g. `mapa "Rizal Park, Manila"` — add a second `"zoom"` (1–21) if you like |
 | `pagsuratan` | text input with label and optional placeholder, e.g. `pagsuratan "Naganmo" "Isurat ditoy"` |
 
 ### Control flow: `no` and `isuble`
@@ -152,8 +155,9 @@ need a JavaScript runtime for the control flow.
 
 ### A note on the vocabulary
 
-**Unverified additions:** `bilang`, `duakolum` and `bidyo` are
-*constructed or borrowed*, not checked against an Ilokano source
+**Unverified additions:** `bilang`, `duakolum`, `bidyo`, `karusel` and
+`mapa` are *constructed or borrowed* (`karusel` and `mapa` are loanwords; the
+carousel's button labels `Napalabas` / `Sumaruno` are also unchecked), not checked against an Ilokano source
 (`bilang` means "number/count", `dua` is "two"). Same policy as
 `pagtudo`: flag better words and they are one-line swaps.
 
@@ -270,8 +274,8 @@ scrolls sideways. What each group does:
   inserts the line with placeholder text pre-selected — just type to
   replace it.
 - **Banag / Bilang / Naaramid** — bullet, numbered and checklist items.
-- **Silpo / Ladawan / Ladawanan / Bidyo** — link, image, photo gallery
-  (an open/close pair) and YouTube video.
+- **Silpo / Ladawan / Ladawanan / Bidyo / Karusel / Mapa** — link, image, photo
+  gallery and carousel (each an open/close pair), YouTube video and Google Map.
 - **Immuna / Dalan / Lalaem / Dua a Kolum / Udi** — header band,
   navigation bar, container, two columns and footer (each inserts an
   open/close pair with the cursor on the blank line between them),
@@ -289,7 +293,8 @@ scrolls sideways. What each group does:
   raw CSS block.
 - **Theme swatches** — nine colored circles, one per `tema`; click one
   to insert that exact `tema "..."` line.
-- **Baro a Tema / Pattern / Pattern ti Lalaem** — the generators, below.
+- **Baro a Tema / Pattern / Pattern ti Lalaem / Baro a UI / Baro a Favicon** — the
+  generators, below.
 - **I-save** — writes the current text back to the real `.pintas`
   file on disk. Nothing is saved to disk until this is clicked.
 
@@ -398,6 +403,39 @@ not "sounds Ilokano"):
 | `sao` | word / speech | Wiktionary (Ilocano), plus several independent sources |
 | `pila` | line / row | Austronesian Comparative Dictionary (Carro; Rubino) — note it's most literally a *waiting line*, so as a "divider" it's a slight stretch |
 | `pagtudo` | (badge/label) | **Constructed, not attested as a whole word:** `tudo` ("to point out, indicate") is dictionary-attested, and `pag-…` follows the same nominalizing pattern as `pagpindutan`. Flag it if a better word exists — it's a one-line swap |
+
+### Carousel and map: `karusel`, `mapa`
+
+```text
+karusel
+ladawan "foto1.jpg"
+ladawan "foto2.jpg"
+ladawan "https://picsum.photos/seed/pintas3/800/450"
+murdong
+
+mapa "Rizal Park, Manila"
+mapa "7.0731,125.6128" "15"
+```
+
+- **`karusel`** is a container like `ladawanan`, closed with `murdong`, but it
+  shows one picture at a time. Only `ladawan` lines are allowed inside (anything
+  else fails with the line number), and `isuble` works inside it, so
+  `isuble i manipud 1 agingga 6` + `ladawan "foto{{i}}.jpg"` makes six slides.
+  Visitors can swipe, use the arrow buttons, click the dots, or press the
+  left/right arrow keys; the arrows wrap around at both ends. The slides are a
+  plain scroll-snap strip, so swiping still works with JavaScript off. A
+  carousel with a single picture draws no arrows or dots. Local pictures are
+  copied next to the compiled page, the same as `ladawan` anywhere else, and a
+  carousel can be named (`karusel "galeria"`) to be a `pagpindutan` toggle target.
+- **`mapa`** takes a place name, an address, or `latitude,longitude`, plus an
+  optional zoom from 1 to 21. It uses Google's keyless embed, so the page stays
+  one static file with no API key to manage, and it always includes a small
+  "Ukat iti Google Maps" link underneath as a fallback. The place is typed
+  exactly as written (accents like the `ñ` in `Peñablanca` are kept).
+  Anyone opening a page with a `mapa` is loading Google's map, so Google
+  receives that request the same way it does for `bidyo` and YouTube.
+- Both are themed through the same CSS variables as everything else, so they
+  re-color under any `tema`.
 
 ### Interactive: show/hide with `garrapon` + `pagpindutan`
 
@@ -516,6 +554,33 @@ part of the compiler itself - each run on their own, each tested on
 their own (`test_theme_generator.py`, `test_pattern_generator.py`),
 and neither one changes what `pintas.py` does.
 
+### `ui_generator.py` - whole UIs named after Philippine mythical creatures
+
+Press **Baro a UI** and get a complete, ready-to-use Pintas page. Each UI is
+named after a documented creature of Philippine folklore (Ilokano, Tagalog
+and Bisaya), or a hybrid of two: `Bakunawa`, `Ibong Adarna`,
+`Bakunawa-adarna`. The creature steers the design (hue family, light or dark,
+fonts, shape), and a hybrid mixes the two creatures' looks.
+
+```
+python ui_generator.py --gui                        # click-to-generate window
+python ui_generator.py --seed 7 --count 3           # files in generated_ui/
+python ui_generator.py --name Bakunawa-adarna       # choose the name
+python ui_generator.py --list-names
+```
+
+Each result is a `.pintas` file plus the compiled `.html`. Palettes pass the
+same contrast checks as `theme_generator.py` (plus links and button hover),
+the background is a `pattern_generator.py` tile, every UI gets its own round
+sigil, and images are built in (no external assets). The same seed always
+gives the same UI. Names come from a curated list, never invented.
+Tests: `test_ui_generator.py`.
+
+The same generator is also a button in the editor (**Baro a UI**, under
+Generators - see below), so you can generate a page and keep editing it in one
+place. The button always picks a random creature; use the standalone window
+or `--name` when you want to choose one.
+
 ### Generators inside the editor
 
 The editor toolbar has a generator group, so no command line is needed:
@@ -525,6 +590,8 @@ The editor toolbar has a generator group, so no command line is needed:
 | **Baro a Tema** | Runs `theme_generator.py` and drops in a fresh, contrast-verified palette + font pairing. |
 | **Pattern** | Runs `pattern_generator.py` and adds a kusikus-style tiled background to the page (`body`). |
 | **Pattern ti Lalaem** | Same, but tiles the background of every `garrapon` instead. |
+| **Baro a UI** | Runs `ui_generator.py`: a complete page named after a Philippine mythical creature (or a hybrid of two), with its own palette, pattern, sigil, favicon and layout. Unlike the four other buttons this **replaces the whole editor text** - see below. |
+| **Baro a Favicon** | Runs `favicon_generator.py`: a monogram of the page title's first letter in the last generated theme's accent color, added as `ladawan-ulo` lines with the icons embedded. |
 
 Each click rolls a new random seed and *replaces* the previous generated
 block (they sit between `# >>> tema-generator` / `# <<< tema-generator`
@@ -533,6 +600,22 @@ you like by deleting its comment lines. A generated theme has no name yet,
 so it is written as the shipped `tema` with the same fonts plus an
 `estilo` block overriding the colors and shapes; the pattern buttons reuse
 the last generated theme's colors. Naming a theme properly remains a manual step.
+
+**Baro a UI works differently from the other four**, because it writes a whole
+page rather than a block to drop in:
+
+- It replaces everything in the editor in one step, so **Undo** (or Ctrl+Z)
+  brings your previous text straight back, and **Redo** returns the generated page.
+- If the editor holds anything other than an untouched generated UI, it asks
+  first (OK / Cancel). Clicking it again on a UI you haven't touched just rolls a
+  new one with no question, so re-rolling is one click. Once you edit the
+  generated page it asks again.
+- Nothing is written to your file on disk until you press **I-save**.
+- Afterwards, **Pattern** and **Baro a Favicon** use the generated UI's accent
+  and background colors (the favicon takes its title from the page), the same
+  way they follow **Baro a Tema**.
+- It's also in the online playground (`docs/`), since `build_playground.py`
+  now ships `ui_generator.py` with the other generator files.
 
 ### `theme_generator.py` — autonomous palette proposals
 
@@ -568,6 +651,45 @@ plausible-sounding syllables isn't a substitute for that lookup, so
 a generated entry is emitted as `"candidateN"` with a comment saying
 it needs a real name before it's added to `pintas.py`'s `THEMES` —
 that step stays human.
+
+### `favicon_generator.py` — favicons for your pages
+
+Makes the little icon shown in the browser tab. Each favicon is a round or
+rounded-square badge in your accent color with either a **monogram** (the
+first letter of the page title, built from a 5x7 grid of squares like
+cross-stitch) over a faint kusikus weave, or the **sigil** alone (the weave,
+bold). The weave is the same Truchet-tile family as `pattern_generator.py`.
+
+```
+python favicon_generator.py --title "Bakunawa" --accent "#2563eb"
+python favicon_generator.py --title "Pintas" --style sigil --seed 7
+python favicon_generator.py --title "Pintas" --data-uri
+```
+
+It writes `favicon.svg`, `favicon-16/32/48.png` and a multi-size
+`favicon.ico`, and prints the Pintas lines that use them:
+
+```
+ladawan-ulo "favicon-32.png"
+ladawan-ulo "favicon.svg"
+```
+
+Keep the icon files next to the page (`pintas.py` copies them into the output
+folder, the same as `ladawan` images). With `--data-uri` the icons are
+embedded in the `.pintas` file instead, so there is nothing to copy. It is
+pure standard library (its own small PNG renderer, no Pillow), the letter is
+always at least 4.5:1 contrast against the badge (mid-tone accents are
+nudged lighter or darker to get there), and the same seed gives the same
+icon. Tests: `test_favicon.py`.
+
+**About the command name.** `ladawan-ulo` is **constructed**: `ladawan`
+(picture) + `ulo` (head/title), both already in Pintas. I could not confirm an
+established Ilokano word for "favicon", so this is a placeholder in the same
+spirit as `pagsuratan` and `ladawanan`; if you know a better word, changing it
+is one string in `pintas.py` (plus the editor keyword list and toolbar).
+
+The generated UIs from `ui_generator.py` include a monogram favicon of their
+name's first letter.
 
 ### `pattern_generator.py` — kusikus-inspired tileable backgrounds
 
@@ -702,5 +824,8 @@ info → Run anyway**.
 - `pintas.py` - the compiler and command line (`pintas.py site.pintas out/index.html`).
 - `pintas_editor.py` - the browser editor (page, syntax highlighting, live preview, save). `--editor` loads it on demand; the compiler never imports it otherwise.
 - `editor_toolbar.py`, `theme_generator.py`, `pattern_generator.py` - toolbar buttons and the theme/pattern generators the editor uses.
+- `favicon_generator.py` - the standalone favicon maker (SVG, PNG and ICO; `ladawan-ulo` snippets).
+- `editor_icon.py` - the editor's own tab icon (the rice-field emblem from the logo, as data URIs); the files are in `assets/favicon-*.png` and `assets/favicon.ico`.
+- `ui_generator.py` - the standalone creature-named UI generator (`--gui` for the click-to-generate window).
 - `pintas_app.py` - the double-click launcher used for `Pintas.exe`.
 - `build_playground.py` - builds the GitHub Pages playground into `docs/`.
